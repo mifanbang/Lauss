@@ -1,6 +1,6 @@
 ﻿/*
  *  Lauss - PoC blocking ad banners in LINE clients on Windows
- *  Copyright (C) 2020-2023 Mifan Bang <https://debug.tw>.
+ *  Copyright (C) 2023 Mifan Bang <https://debug.tw>.
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
