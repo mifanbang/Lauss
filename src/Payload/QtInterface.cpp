@@ -1,6 +1,6 @@
 /*
  *  Lauss - PoC blocking ad banners in LINE clients on Windows
- *  Copyright (C) 2023 Mifan Bang <https://debug.tw>.
+ *  Copyright (C) 2023-2026 Mifan Bang <https://debug.tw>.
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include <cstdio>
 
 
+decltype(QMetaObject::ClassName) QMetaObject::ClassName{ nullptr };
 decltype(QObject::ObjectName) QObject::ObjectName{ nullptr };
 decltype(QWidget::ParentWidget) QWidget::ParentWidget{ nullptr };
 decltype(QWidget::Resize) QWidget::Resize{ nullptr };
@@ -32,16 +33,39 @@ using namespace std::literals;
 
 bool ResolveQtFunctions()
 {
-	QObject::ObjectName = gan::DynamicCall::Get<decltype(QObject::ObjectName)>(L"Qt5Core.dll"sv, "?objectName@QObject@@QBE?AVQString@@XZ"sv);  // QObject::objectName()
+	// const char* QMetaObject::className() const __ptr64
+	QMetaObject::ClassName = gan::DynamicCall::Get<decltype(QMetaObject::ClassName)>(
+		L"Qt6Core.dll"sv,
+		"?className@QMetaObject@@QEBAPEBDXZ"sv
+	);
+	printf("[INFO] Resolved QMetaObject::className=%p\n", gan::FromMemFn(QMetaObject::ClassName));
+
+
+	// class QString QObject::objectName() const __ptr64
+	QObject::ObjectName = gan::DynamicCall::Get<decltype(QObject::ObjectName)>(
+		L"Qt6Core.dll"sv,
+		"?objectName@QObject@@QEBA?AVQString@@XZ"sv
+	);
 	printf("[INFO] Resolved QObject::objectName=%p\n", gan::FromMemFn(QObject::ObjectName));
 
-	QWidget::ParentWidget = gan::DynamicCall::Get<decltype(QWidget::ParentWidget)>(L"Qt5Widgets.dll"sv, "?parentWidget@QWidget@@QBEPAV1@XZ"sv);  // QWidget::parentWidget()
+
+	// class QWidget* __ptr64 QWidget::parentWidget() const __ptr64
+	QWidget::ParentWidget = gan::DynamicCall::Get<decltype(QWidget::ParentWidget)>(
+		L"Qt6Widgets.dll"sv,
+		"?parentWidget@QWidget@@QEBAPEAV1@XZ"sv
+	);
 	printf("[INFO] Resolved QWidget::parentWidget=%p\n", gan::FromMemFn(QWidget::ParentWidget));
 
-	QWidget::Resize = gan::DynamicCall::Get<decltype(QWidget::Resize)>(L"Qt5Widgets.dll"sv, "?resize@QWidget@@QAEXHH@Z"sv);  // QWidget::resize(int, int)
+	// void QWidget::resize(int,int) __ptr64
+	QWidget::Resize = gan::DynamicCall::Get<decltype(QWidget::Resize)>(
+		L"Qt6Widgets.dll"sv,
+		"?resize@QWidget@@QEAAXHH@Z"sv
+	);
 	printf("[INFO] Resolved QWidget::resize=%p\n", gan::FromMemFn(QWidget::Resize));
 
-	return QObject::ObjectName
+
+	return QMetaObject::ClassName
+		&& QObject::ObjectName
 		&& QWidget::ParentWidget
 		&& QWidget::Resize;
 }

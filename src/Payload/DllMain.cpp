@@ -1,6 +1,6 @@
 ﻿/*
  *  Lauss - PoC blocking ad banners in LINE clients on Windows
- *  Copyright (C) 2023 Mifan Bang <https://debug.tw>.
+ *  Copyright (C) 2023-2026 Mifan Bang <https://debug.tw>.
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ enum class PayloadResult : DWORD
 };
 
 
-std::underlying_type_t<PayloadResult> WINAPI PayloadMain([[maybe_unused]] void* param)
+std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
 {
 	using QWidget_Show = decltype(&QWidget::show);
 
@@ -52,7 +52,10 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain([[maybe_unused]] void* 
 	}
 
 	// 2. Resolve target function, i.e., QWidget::show
-	auto targetFunc = gan::DynamicCall::Get<QWidget_Show>(L"Qt5Widgets.dll"sv, "?show@QWidget@@QAEXXZ"sv);  // QWidget::show()
+	auto targetFunc = gan::DynamicCall::Get<QWidget_Show>(
+		L"Qt6Widgets.dll"sv,
+		"?show@QWidget@@QEAAXXZ"sv  // void QWidget::show() __ptr64
+	);
 	{
 		if (!targetFunc)
 		{
@@ -66,15 +69,12 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain([[maybe_unused]] void* 
 	{
 		gan::Hook hook{ targetFunc, gan::ToMemFn<QWidget_Show>(gan::FromMemFn(&Hook_QWidget::Show)) };
 		const auto hookResult = hook.Install();
-		if (hookResult == gan::Hook::OpResult::Hooked)
-		{
-			Printf("[INFO] QWidget::show hooked.\n");
-		}
-		else
+		if (hookResult != gan::Hook::OpResult::Hooked)
 		{
 			printf("[ERROR] Failed to hook QWidget::show. Code=%u\n", static_cast<uint32_t>(hookResult));
 			return std::to_underlying(PayloadResult::CannotHook);
 		}
+		Printf("[INFO] QWidget::show hooked.\n");
 	}
 
 	// 4. Obtain and store address of trampoline to global states
@@ -85,17 +85,17 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain([[maybe_unused]] void* 
 			Printf("[ERROR] Failed to get trampoline.\n");
 			return std::to_underlying(PayloadResult::CannotGetTrampoline);
 		}
-
-		const auto trampoline = gan::FromMemFn(Hook_QWidget::s_trampoline);
-		Printf("[INFO] trampoline=%p\n", trampoline);
-		Printf(
-			"[INFO] copied prolog in trampoline: [op_mov]=%02x [addr]=%p\n",
-			gan::ConstMemAddr{ trampoline }.ConstRef<unsigned char>(),
-			gan::ConstMemAddr{ trampoline }.Offset(1).ConstRef<void*>()
-		);
+		Printf("[INFO] Trampoline generated at %p\n", Hook_QWidget::s_trampoline);
 	}
 
 	return std::to_underlying(PayloadResult::Success);
+}
+
+
+extern "C" __declspec(dllexport)
+LRESULT WINAPI Dummy(int code, WPARAM wParam, LPARAM lParam)
+{
+	return CallNextHookEx(nullptr, code, wParam, lParam);
 }
 
 
@@ -105,16 +105,19 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
     {
 		case DLL_PROCESS_ATTACH:
 		{
+			// Increment refcount to keep DLL alive after hooking process terminates
+			static auto hMod = ::LoadLibraryW(L"payload.dll");
+
 			if constexpr (UseDebugConsole())
 			{
 				FILE* fp;
-				AllocConsole();
-				freopen_s(&fp, "CONIN$", "r+t", stdin);
-				freopen_s(&fp, "CONOUT$", "w+t", stdout);
-				freopen_s(&fp, "CONOUT$", "w+t", stderr);
+				::AllocConsole();
+				::freopen_s(&fp, "CONIN$", "r+t", stdin);
+				::freopen_s(&fp, "CONOUT$", "w+t", stdout);
+				::freopen_s(&fp, "CONOUT$", "w+t", stderr);
 			}
 
-			const auto hThread = CreateThread(nullptr, 0, PayloadMain, nullptr, 0, nullptr);
+			const auto hThread = ::CreateThread(nullptr, 0, PayloadMain, nullptr, 0, nullptr);
 			if (!hThread)
 				return FALSE;
 			break;
@@ -123,7 +126,7 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 		case DLL_PROCESS_DETACH:
 		{
 			if constexpr (UseDebugConsole())
-				FreeConsole();
+				::FreeConsole();
 			break;
 		}
 

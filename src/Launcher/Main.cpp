@@ -1,6 +1,6 @@
 /*
  *  Lauss - PoC blocking ad banners in LINE clients on Windows
- *  Copyright (C) 2023 Mifan Bang <https://debug.tw>.
+ *  Copyright (C) 2023-2026 Mifan Bang <https://debug.tw>.
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,9 +56,10 @@ class LineProcessHelper
 public:
 	enum class InjectionResult
 	{
-		Succeeded,
+		Success,
 		AlreadyActive,
 		ProcessNotFound,
+		HookError,
 		SystemCallError,
 
 		Count
@@ -68,6 +69,7 @@ public:
 		"Success"sv,
 		"AlreadyActive"sv,
 		"ProcessNotFound"sv,
+		"HookError"sv,
 		"SystemCallError"sv
 	};
 
@@ -91,38 +93,53 @@ public:
 
 	static InjectionResult InjectPayload()
 	{
-		if (const auto pair = GetProcessThreadIds())
-		{
-			auto [pid, tid] = *pair;
-			if (FindPayloadInProcess(pid).second)
-				return InjectionResult::AlreadyActive;  // Payload had already been injected
+		const auto targetPidTid = GetProcessThreadIds();
+		if (!targetPidTid)
+			return InjectionResult::ProcessNotFound;
 
-			constexpr BOOL k_notInheritable = FALSE;
-			constexpr DWORD k_procAccessFlags =
-				PROCESS_VM_OPERATION
-				| PROCESS_VM_WRITE
-				| PROCESS_SUSPEND_RESUME
-				| SYNCHRONIZE;
-			gan::AutoWinHandle hProc{ OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
-			assert(hProc);
+		const auto [pid, tid] = *targetPidTid;
+		const auto [procFound, payloadFound] = FindPayloadInProcess(pid);
+		if (!procFound)
+			return InjectionResult::ProcessNotFound;
+		else if (payloadFound)
+			return InjectionResult::AlreadyActive;  // Payload already injected
 
-			constexpr DWORD k_threadAccessFlags = 
-				THREAD_QUERY_INFORMATION
-				| THREAD_SET_INFORMATION
-				| THREAD_SUSPEND_RESUME
-				| THREAD_GET_CONTEXT
-				| THREAD_SET_CONTEXT
-				| SYNCHRONIZE;
-			gan::AutoWinHandle hThread{ OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
-			assert(hThread);
+		constexpr BOOL k_notInheritable = FALSE;
+		constexpr DWORD k_procAccessFlags =
+			PROCESS_VM_OPERATION
+			| PROCESS_VM_WRITE
+			| PROCESS_SUSPEND_RESUME
+			| SYNCHRONIZE;
+		gan::AutoWinHandle hProc{ OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
+		assert(hProc);
+		if (!hProc)
+			return InjectionResult::SystemCallError;  // Note: could also be process terminated
 
-			gan::DllInjectorByContext injector(*hProc, *hThread);
-			const auto injectResult = injector.Inject(GetCurrentDirectoryW() + L"\\Payload.dll"s);
-			return (injectResult == gan::DllInjectorByContext::Result::Succeeded) && WaitForPayloadBeingLoaded(pid, 5s) ?
-				InjectionResult::Succeeded :
-				InjectionResult::SystemCallError;
-		}
-		return InjectionResult::ProcessNotFound;
+		constexpr DWORD k_threadAccessFlags =
+			THREAD_QUERY_INFORMATION
+			| THREAD_SET_INFORMATION
+			| THREAD_SUSPEND_RESUME
+			| THREAD_GET_CONTEXT
+			| THREAD_SET_CONTEXT
+			| SYNCHRONIZE;
+		gan::AutoWinHandle hThread{ OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
+		assert(hThread);
+		if (!hThread)
+			return InjectionResult::SystemCallError;  // Note: could also be process terminated
+
+		const auto path = GetCurrentDirectoryW() + L"\\Payload.dll";
+		const auto hMod = ::LoadLibraryW(path.c_str());
+		assert(hMod);
+		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
+		assert(hHookProc);
+		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
+		if (hHook == nullptr)
+			return InjectionResult::HookError;
+
+		const auto waitResult = WaitForPayload(pid, 5s);
+		::UnhookWindowsHookEx(hHook);
+
+		return waitResult ? InjectionResult::Success : InjectionResult::SystemCallError;
 	}
 
 private:
@@ -163,7 +180,7 @@ private:
 		return std::nullopt;
 	}
 
-	static bool WaitForPayloadBeingLoaded(uint32_t pid, std::chrono::seconds timeout)
+	static bool WaitForPayload(uint32_t pid, std::chrono::seconds timeout)
 	{
 		constexpr static std::chrono::milliseconds k_checkInterval{ 100ms };
 
@@ -181,7 +198,6 @@ private:
 
 
 }  // unnamed namespace
-
 
 
 int main()

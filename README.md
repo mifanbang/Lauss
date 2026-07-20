@@ -16,6 +16,10 @@ Linking a phone number to your LINE account is not a requirement for using the s
 
 Asking and gathering users' personal data to generate revenue are generally fine as the company provides their services free-of-charge in return. However, when a user complies to the company's greed for ever more data, instead of giving back some rewards, LY Corporation decided to dump them all sorts of rubbish out of gratitude. In plain terms, the company slaps users in the face when the users *voluntarily* give in more personal data.
 
+### Supported version
+
+The latest verified LINE client version for which this project supports is v26.3 (built on Qt 6.6.3). If you find a newer LINE client version that becomes unsupported, please feel free to [file an issue](https://github.com/mifanbang/Lauss/issues).
+
 ## How to use
 
 1. A LINE client must already be active in the system. Login is not required though.
@@ -24,15 +28,11 @@ Asking and gathering users' personal data to generate revenue are generally fine
 
 ## How to build
 
-Source code and solution/project files in this project are maintained with Visual Studio 2022. Everything needed to build the software is already in the repository. Just hit the build button and you should be good to go. Output executables can be found in the `bin/` folder.
-
-### Additional notes
-
-The Windows version of LINE's client is still built as a 32-bit application. Lauss uses a variant of DLL injection techniques to load `Payload.dll` into LINE client's memory space, so it also has to be 32-bit.
+Source code and solution/project files in this project are maintained with Visual Studio 2026. Everything needed to build the software is already in the repository. Just hit the build button and you should be good to go. Output executables can be found in the `bin/` folder.
 
 ## Copyright
 
-Copyright (C) 2023 Mifan Bang <https://debug.tw>.
+Copyright (C) 2023-2026 Mifan Bang <https://debug.tw>.
 
 This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
