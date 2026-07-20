@@ -77,16 +77,14 @@ public:
 	// .second = payload is found
 	static std::pair<bool, bool> FindPayloadInProcess(uint32_t pid)
 	{
-		gan::ModuleList modList;
-		if (const auto enumResult = gan::ModuleEnumerator::Enumerate(pid, modList);
-			enumResult == gan::ModuleEnumerator::Result::Success)
+		if (const auto modList = gan::ModuleEnumerator{}(pid))
 		{
 			const auto itr = std::find_if(
-				modList.begin(),
-				modList.end(),
+				modList->begin(),
+				modList->end(),
 				[](const auto& mod) -> bool { return StrStrIW(mod.imageName.c_str(), L"Payload.dll"); }
 			);
-			return std::make_pair(true, itr != modList.end());
+			return std::make_pair(true, itr != modList->end());
 		}
 		return std::make_pair(false, false);
 	}
@@ -145,27 +143,23 @@ public:
 private:
 	static std::optional<uint32_t> GetProcessId()
 	{
-		gan::ProcessList procList;
-		[[maybe_unused]] const auto enumResult = gan::ProcessEnumerator::Enumerate(procList);
-		assert(enumResult == gan::ProcessEnumerator::Result::Success);
-
-		for (const auto& proc : procList)
+		if (const auto procList = gan::ProcessEnumerator{}())
 		{
-			if (StrStrIW(proc.imageName.c_str(), L"line.exe"))
-				return proc.pid;
+			for (const auto& proc : *procList)
+			{
+				if (StrStrIW(proc.imageName.c_str(), L"line.exe"))
+					return proc.pid;
+			}
 		}
 		return std::nullopt;
 	}
 
 	static std::optional<uint32_t> GetThreadId(uint32_t pid)
 	{
-		// Any thread should do. Just return the first one.
-		gan::ThreadList threadList;
-		const auto enumThreadResult = gan::ThreadEnumerator::Enumerate(pid, threadList);
-		if (enumThreadResult == gan::ThreadEnumerator::Result::Success
-			&& threadList.size() > 0)
+		if (const auto threadList = gan::ThreadEnumerator{}(pid);
+			threadList && threadList->size() > 0)
 		{
-			return threadList[0].tid;
+			return (*threadList)[0].tid;  // Any thread should do. Just return the first one.
 		}
 		return std::nullopt;
 	}
