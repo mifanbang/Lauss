@@ -17,6 +17,7 @@
  */
 
 #include "Debug.h"
+#include "LaussDef.h"
 #include "QtHook.h"
 
 #include <DynamicCall.h>
@@ -106,7 +107,7 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 		case DLL_PROCESS_ATTACH:
 		{
 			// Increment refcount to keep DLL alive after hooking process terminates
-			static auto hMod = ::LoadLibraryW(L"payload.dll");
+			static auto hMod = ::LoadLibraryW(PayloadName());
 
 			if constexpr (UseDebugConsole())
 			{

@@ -16,6 +16,8 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "LaussDef.h"
+
 #include <DllInjector.h>
 #include <Handle.h>
 #include <ModuleList.h>
@@ -82,7 +84,7 @@ public:
 			const auto itr = std::find_if(
 				modList->begin(),
 				modList->end(),
-				[](const auto& mod) -> bool { return StrStrIW(mod.imageName.c_str(), L"Payload.dll"); }
+				[](const auto& mod) -> bool { return StrStrIW(mod.imageName.c_str(), PayloadName()); }
 			);
 			return std::make_pair(true, itr != modList->end());
 		}
@@ -125,7 +127,7 @@ public:
 		if (!hThread)
 			return InjectionResult::SystemCallError;  // Note: could also be process terminated
 
-		const auto path = GetCurrentDirectoryW() + L"\\Payload.dll";
+		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
 		const auto hMod = ::LoadLibraryW(path.c_str());
 		assert(hMod);
 		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
@@ -147,7 +149,7 @@ private:
 		{
 			for (const auto& proc : *procList)
 			{
-				if (StrStrIW(proc.imageName.c_str(), L"line.exe"))
+				if (StrStrIW(proc.imageName.c_str(), LineImageName()))
 					return proc.pid;
 			}
 		}

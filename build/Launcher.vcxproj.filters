@@ -12,5 +12,8 @@
     <ClInclude Include="..\src\include\Debug.h">
       <Filter>Shared</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\include\LaussDef.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

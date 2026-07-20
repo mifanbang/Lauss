@@ -183,6 +183,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\include\Debug.h" />
+    <ClInclude Include="..\src\include\LaussDef.h" />
     <ClInclude Include="..\src\Payload\QtHook.h" />
     <ClInclude Include="..\src\Payload\QtInterface.h" />
   </ItemGroup>
