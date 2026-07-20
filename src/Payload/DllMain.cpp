@@ -71,7 +71,7 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
 		const auto hookResult = hook.Install();
 		if (hookResult != gan::Hook::OpResult::Hooked)
 		{
-			printf("[ERROR] Failed to hook QWidget::show. Code=%u\n", static_cast<uint32_t>(hookResult));
+			Printf("[ERROR] Failed to hook QWidget::show. Code=%u\n", static_cast<uint32_t>(hookResult));
 			return std::to_underlying(PayloadResult::CannotHook);
 		}
 		Printf("[INFO] QWidget::show hooked.\n");
@@ -93,7 +93,7 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
 
 
 extern "C" __declspec(dllexport)
-LRESULT WINAPI Dummy(int code, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK Dummy(int code, WPARAM wParam, LPARAM lParam)
 {
 	return CallNextHookEx(nullptr, code, wParam, lParam);
 }

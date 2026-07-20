@@ -18,6 +18,8 @@
 
 #include "QtInterface.h"
 
+#include "Debug.h"
+
 #include <DynamicCall.h>
 
 #include <cstdio>
@@ -38,7 +40,7 @@ bool ResolveQtFunctions()
 		L"Qt6Core.dll"sv,
 		"?className@QMetaObject@@QEBAPEBDXZ"sv
 	);
-	printf("[INFO] Resolved QMetaObject::className=%p\n", gan::FromMemFn(QMetaObject::ClassName));
+	Printf("[INFO] Resolved QMetaObject::className=%p\n", gan::FromMemFn(QMetaObject::ClassName));
 
 
 	// class QString QObject::objectName() const __ptr64
@@ -46,7 +48,7 @@ bool ResolveQtFunctions()
 		L"Qt6Core.dll"sv,
 		"?objectName@QObject@@QEBA?AVQString@@XZ"sv
 	);
-	printf("[INFO] Resolved QObject::objectName=%p\n", gan::FromMemFn(QObject::ObjectName));
+	Printf("[INFO] Resolved QObject::objectName=%p\n", gan::FromMemFn(QObject::ObjectName));
 
 
 	// class QWidget* __ptr64 QWidget::parentWidget() const __ptr64
@@ -54,14 +56,14 @@ bool ResolveQtFunctions()
 		L"Qt6Widgets.dll"sv,
 		"?parentWidget@QWidget@@QEBAPEAV1@XZ"sv
 	);
-	printf("[INFO] Resolved QWidget::parentWidget=%p\n", gan::FromMemFn(QWidget::ParentWidget));
+	Printf("[INFO] Resolved QWidget::parentWidget=%p\n", gan::FromMemFn(QWidget::ParentWidget));
 
 	// void QWidget::resize(int,int) __ptr64
 	QWidget::Resize = gan::DynamicCall::Get<decltype(QWidget::Resize)>(
 		L"Qt6Widgets.dll"sv,
 		"?resize@QWidget@@QEAAXHH@Z"sv
 	);
-	printf("[INFO] Resolved QWidget::resize=%p\n", gan::FromMemFn(QWidget::Resize));
+	Printf("[INFO] Resolved QWidget::resize=%p\n", gan::FromMemFn(QWidget::Resize));
 
 
 	return QMetaObject::ClassName
