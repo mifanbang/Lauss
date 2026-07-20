@@ -3,4 +3,14 @@
   <ItemGroup>
     <ClCompile Include="..\src\Launcher\Main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shared">
+      <UniqueIdentifier>{a6db5e85-5673-4147-9fd0-b81c5be643e8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\include\Debug.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>

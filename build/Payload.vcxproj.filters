@@ -8,6 +8,13 @@
   <ItemGroup>
     <ClInclude Include="..\src\Payload\QtInterface.h" />
     <ClInclude Include="..\src\Payload\QtHook.h" />
-    <ClInclude Include="..\src\Payload\Debug.h" />
+    <ClInclude Include="..\src\include\Debug.h">
+      <Filter>Shared</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Shared">
+      <UniqueIdentifier>{7b6f7d6d-c3f3-41f1-a660-29c3a4808c08}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>
