@@ -1,0 +1,261 @@
+/*
+ *  Lauss - PoC blocking ad banners in LINE clients on Windows
+ *  Copyright (C) 2023-2026 Mifan Bang <https://debug.tw>.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "QtUtils.h"
+
+#include "Debug.h"
+#include "QtHook.h"
+
+#include <windows.h>
+
+#include <cstdio>
+#include <optional>
+#include <ranges>
+#include <string>
+#include <vector>
+#include <utility>
+
+
+
+const char* GetQtClassName(const QObject& object)
+{
+	const auto metaObj = object.metaObject();
+	return (metaObj->*QMetaObject::ClassName)();
+}
+
+
+// Inclusive of the bottom-most widget
+std::vector<QWidget*> FindOwningWidgets(QWidget& bottom)
+{
+	std::vector<QWidget*> parents;
+	for (QWidget* widget = &bottom; widget; widget = (widget->*QWidget::ParentWidget)())
+	{
+		parents.emplace_back(widget);
+
+		const auto* className = GetQtClassName(*widget);
+		Printf(
+			"[FindOwningWidgets()] this=%p objName=%S class=%s\n",
+			widget,
+			(widget->*QWidget::ObjectName)().data.Data(),
+			className
+		);
+	}
+	return parents;
+}
+
+
+std::vector<IndexedMethod> GetMethods(const QObject& object)
+{
+	const QMetaObject* metaObj = (object.metaObject)();
+
+	const auto idxRange = std::ranges::iota_view{
+		0, //(metaObj->*QMetaObject::MethodOffset)(),
+		(metaObj->*QMetaObject::MethodCount)()
+	};
+	auto methodList = idxRange
+		| std::views::transform( [metaObj](auto idx) { return std::make_pair(idx, (metaObj->*QMetaObject::Method)(idx)); })
+		| std::ranges::to<std::vector>();
+	return methodList;
+}
+
+
+std::optional<std::vector<Connection*>> GetConnections(QObject& object, const char* signal)
+{
+	if (!object.d_ptr->connections
+		|| !object.d_ptr->connections->signalVector)
+	{
+		return std::nullopt;
+	}
+
+	const auto signalIndex = (object.d_ptr->*QObjectPrivate::SignalIndex)(signal, nullptr);
+	if (signalIndex < 0
+		|| signalIndex >= object.d_ptr->connections->signalVector->allocated)
+	{
+		return std::nullopt;
+	}
+
+	std::vector<Connection*> connections;
+	{
+		const auto connList = object.d_ptr->connections->signalVector->GetConnectionList(signalIndex);
+		for (Connection* conn = connList.front;
+			conn;
+			conn = conn->nextConnectionList)
+		{
+			connections.emplace_back(conn);
+		}
+	}
+	return connections;
+}
+
+
+void PrintMethods(const std::vector<IndexedMethod>& methods)
+{
+	for (const auto& [idx, metaMethod] : methods)
+	{
+		const auto methodSig = (metaMethod.*QMetaMethod::MethodSignature)();
+		Printf(
+			"  method idx=%d type=%d ret=%s sig=%s\n",
+			idx,
+			(metaMethod.*QMetaMethod::MethodType)(),
+			(metaMethod.*QMetaMethod::TypeName)(),
+			methodSig.data.ptr
+		);
+	}
+}
+
+
+bool PrintConnectionsToSignal(QObject& object, const char* signal)
+{
+	const auto connections = GetConnections(object, signal);
+	if (!connections)
+		return false;
+
+	for (const Connection* conn : connections.value())
+	{
+		const auto* receiverObj = conn->receiver;
+		if (!receiverObj)
+			continue;
+
+		const auto* receiverClass = GetQtClassName(*receiverObj);
+		if (conn->isSlotObject)
+		{
+			// conn->isSlotObject indicates that conn->slotObj is valid.
+			// conn->slotObj->impl points to a function of the signature:
+			//     using ImplFunc = void (*)(
+			//	       int32_t which,
+			//         QSlotObjectBase* this_,
+			//         const QObject* r,
+			//         void** a,
+			//         bool* ret
+			//     );
+			//     const auto impl = reinterpret_cast<ImplFunc>(conn->slotObj->impl);
+			if (conn->slotObj == nullptr)
+				continue;
+			Printf("    --> receiver=%p cls=%s  slotImpl=%p\n", receiverObj, receiverClass, conn->slotObj->impl);
+		}
+		else
+		{
+			const auto* metaObj = receiverObj->metaObject();
+			const auto methodIndex = static_cast<int32_t>(conn->methodOffset + conn->methodRelative);
+			const auto slotMethod = (metaObj->*QMetaObject::Method)(methodIndex);
+			const char* methodSig =
+				(methodIndex >= 0 && methodIndex < (metaObj->*QMetaObject::MethodCount)())
+				? (slotMethod.*QMetaMethod::MethodSignature)().data.ptr
+				: "invalid";
+
+			Printf(
+				"    --> receiver=%p cls=%s  methodIndex=%d(%d(off)+%d(rel)) method=%s\n",
+				receiverObj,
+				receiverClass,
+				methodIndex,
+				static_cast<int32_t>(conn->methodOffset),
+				static_cast<int32_t>(conn->methodRelative),
+				methodSig
+			);
+		}
+	}
+
+	return true;
+}
+
+
+void PrintMethodsWithSignalConnections(QObject& object)
+{
+	for (const auto& [idx, metaMethod] : GetMethods(object))
+	{
+		const auto signature = (metaMethod.*QMetaMethod::MethodSignature)();
+		const auto methodType = (metaMethod.*QMetaMethod::MethodType)();
+		Printf(
+			"  method idx=%d type=%d ret=%s sig=%s\n",
+			idx,
+			methodType,
+			(metaMethod.*QMetaMethod::TypeName)(),
+			signature.data.ptr
+		);
+
+		if (methodType == QMetaMethod::MethodType::Signal)
+			PrintConnectionsToSignal(object, signature.data.ptr);
+	}
+}
+
+
+std::vector<QWidget*> FindActiveBanners()
+{
+	constexpr const size_t k_expectedMaxBanner = 4;
+	std::vector<QWidget*> adWidgets;
+	adWidgets.reserve(k_expectedMaxBanner);
+
+	const auto topWidgets = QApplication::TopLevelWidgets();
+	const std::span<QWidget*> widgetSpan{ topWidgets.data.ptr, topWidgets.data.size };
+	Printf("[FindActiveBanners()] QApplication::TopLevelWidgets() returned %zu widgets.\n", widgetSpan.size());
+
+	static wchar_t k_adWidgetName[] = L"bannerWholeImage";
+	static const QString adWidgetNameStr{
+		.data{
+			.d = nullptr,  // Raw string like QString::fromRawData(), no heap alloc or control block
+			.ptr = k_adWidgetName,
+			.size = sizeof(k_adWidgetName) / sizeof(k_adWidgetName[0]) - 1
+		}
+	};
+
+	const QMetaObject* metaObjQWidget = QWidget::staticMetaObjectPtr;
+	for (auto* widget : widgetSpan)
+	{
+		if (::lstrcmpA(GetQtClassName(*widget), "AllInOneWindow") != 0)
+			continue;
+
+		QList<QWidget*> list{};
+		qt_qFindChildren_helper(widget, adWidgetNameStr, *metaObjQWidget, &list, k_FindChildrenRecursively);
+		for (size_t i = 0; i < list.data.size; ++i)
+		{
+			if (auto* w = list.data.ptr[i])
+				adWidgets.emplace_back(w);
+		}
+	}
+
+	return adWidgets;
+}
+
+
+bool ResizeAdWidget(QWidget& adBannerWidget)
+{
+	const auto owningWidgets = FindOwningWidgets(adBannerWidget);
+	const auto rootAdWidget =
+		std::views::enumerate(owningWidgets)
+		| std::views::filter([](const auto& kv) { return ::lstrcmpiA(GetQtClassName(*std::get<1>(kv)), "AdvertisementPanel") == 0; })
+		| std::views::elements<0>
+		| std::views::take(1)
+		| std::ranges::to<std::vector>();
+
+	if (rootAdWidget.size() == 0)
+	{
+		// If we reached here, LINE must have changed its UI design or behavior.
+		Printf("[ResizeAdWidget()] Failed to hide ad banner due to unexpected QWidget hierarchy. The current LINE version might be unsupported.\n");
+		return false;
+	}
+	const size_t numAdWidgets = rootAdWidget.front() + 1;
+	Printf("[ResizeAdWidget()] Hiding %zu widgets\n", numAdWidgets);
+
+	for (auto* adWidget : owningWidgets | std::views::take(numAdWidgets))
+	{
+		(adWidget->*QWidget::Resize)(0, 1);
+		(adWidget->*QWidget::Hide)();
+	}
+
+	return true;
+}

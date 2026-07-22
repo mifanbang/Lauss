@@ -4,6 +4,7 @@
     <ClCompile Include="..\src\Payload\DllMain.cpp" />
     <ClCompile Include="..\src\Payload\QtInterface.cpp" />
     <ClCompile Include="..\src\Payload\QtHook.cpp" />
+    <ClCompile Include="..\src\Payload\QtUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Payload\QtInterface.h" />
@@ -14,6 +15,7 @@
     <ClInclude Include="..\src\include\LaussDef.h">
       <Filter>Shared</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\Payload\QtUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Shared">

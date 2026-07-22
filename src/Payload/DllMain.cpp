@@ -19,16 +19,22 @@
 #include "Debug.h"
 #include "LaussDef.h"
 #include "QtHook.h"
+#include "QtInterface.h"
+#include "QtUtils.h"
 
-#include <DynamicCall.h>
+#include <DllLookup.h>
 #include <Hook.h>
 
 #include <windows.h>
 
-#include <utility>
+#include <thread>
 
 
 using namespace std::literals;
+
+
+namespace
+{
 
 
 enum class PayloadResult : DWORD
@@ -40,8 +46,7 @@ enum class PayloadResult : DWORD
 	CannotGetTrampoline,
 };
 
-
-std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
+PayloadResult InitializePayload()
 {
 	using QWidget_Show = decltype(&QWidget::show);
 
@@ -49,11 +54,11 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
 	if (!ResolveQtFunctions())
 	{
 		Printf("[ERROR] Failed to resolve Qt dependencies.\n");
-		return std::to_underlying(PayloadResult::CannotResolveQtDeps);
+		return PayloadResult::CannotResolveQtDeps;
 	}
 
 	// 2. Resolve target function, i.e., QWidget::show
-	auto targetFunc = gan::DynamicCall::Get<QWidget_Show>(
+	auto targetFunc = gan::DllLookup::Get<QWidget_Show>(
 		L"Qt6Widgets.dll"sv,
 		"?show@QWidget@@QEAAXXZ"sv  // void QWidget::show() __ptr64
 	);
@@ -61,80 +66,90 @@ std::underlying_type_t<PayloadResult> WINAPI PayloadMain(void* /* param */)
 		if (!targetFunc)
 		{
 			Printf("[ERROR] Failed to resolve target function.\n");
-			return std::to_underlying(PayloadResult::CannotResolveQtTarget);
+			return PayloadResult::CannotResolveQtTarget;
 		}
 		Printf("[INFO] Resolved QWidget::show=%p\n", targetFunc);
 	}
 
 	// 3. Hook target function
 	{
-		gan::Hook hook{ targetFunc, gan::ToMemFn<QWidget_Show>(gan::FromMemFn(&Hook_QWidget::Show)) };
+		gan::Hook hook{ targetFunc, gan::ToMemFn<QWidget_Show>(gan::FromMemFn(&HookedQWidget::Show)) };
 		const auto hookResult = hook.Install();
 		if (hookResult != gan::Hook::OpResult::Hooked)
 		{
 			Printf("[ERROR] Failed to hook QWidget::show. Code=%u\n", static_cast<uint32_t>(hookResult));
-			return std::to_underlying(PayloadResult::CannotHook);
+			return PayloadResult::CannotHook;
 		}
 		Printf("[INFO] QWidget::show hooked.\n");
 	}
 
 	// 4. Obtain and store address of trampoline to global states
 	{
-		Hook_QWidget::s_trampoline = gan::Hook::GetTrampoline(targetFunc);
-		if (!Hook_QWidget::s_trampoline)
+		HookedQWidget::s_trampoline = gan::Hook::GetTrampoline(targetFunc);
+		if (!HookedQWidget::s_trampoline)
 		{
 			Printf("[ERROR] Failed to get trampoline.\n");
-			return std::to_underlying(PayloadResult::CannotGetTrampoline);
+			return PayloadResult::CannotGetTrampoline;
 		}
-		Printf("[INFO] Trampoline generated at %p\n", Hook_QWidget::s_trampoline);
+		Printf("[INFO] Trampoline generated at %p\n", HookedQWidget::s_trampoline);
 	}
 
-	return std::to_underlying(PayloadResult::Success);
+	return PayloadResult::Success;
+}
+
+
+bool OnProcessAttached()
+{
+	// Increment refcount to keep DLL alive after hooking process terminates
+	static auto hMod = ::LoadLibraryW(PayloadName());
+
+	if constexpr (UseDebugConsole())
+	{
+		FILE* fp;
+		::AllocConsole();
+		::freopen_s(&fp, "CONIN$", "r+t", stdin);
+		::freopen_s(&fp, "CONOUT$", "w+t", stdout);
+		::freopen_s(&fp, "CONOUT$", "w+t", stderr);
+	}
+
+	if (InitializePayload() == PayloadResult::Success)
+	{
+		// Hide existing banners
+		for (auto* adWidget : FindActiveBanners())
+			ResizeAdWidget(*adWidget);
+	}
+
+	return true;
+}
+
+void OnProcessDetached()
+{
+	if constexpr (UseDebugConsole())
+	{
+		::FreeConsole();
+	}
+}
+
+
+}  // namespace
+
+
+BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
+{
+	if (reason == DLL_PROCESS_ATTACH)
+	{
+		return static_cast<BOOL>(OnProcessAttached());
+	}
+	else if (reason == DLL_PROCESS_DETACH)
+	{
+		OnProcessDetached();
+	}
+    return TRUE;
 }
 
 
 extern "C" __declspec(dllexport)
 LRESULT CALLBACK Dummy(int code, WPARAM wParam, LPARAM lParam)
 {
-	return CallNextHookEx(nullptr, code, wParam, lParam);
-}
-
-
-BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
-{
-    switch (reason)
-    {
-		case DLL_PROCESS_ATTACH:
-		{
-			// Increment refcount to keep DLL alive after hooking process terminates
-			static auto hMod = ::LoadLibraryW(PayloadName());
-
-			if constexpr (UseDebugConsole())
-			{
-				FILE* fp;
-				::AllocConsole();
-				::freopen_s(&fp, "CONIN$", "r+t", stdin);
-				::freopen_s(&fp, "CONOUT$", "w+t", stdout);
-				::freopen_s(&fp, "CONOUT$", "w+t", stderr);
-			}
-
-			const auto hThread = ::CreateThread(nullptr, 0, PayloadMain, nullptr, 0, nullptr);
-			if (!hThread)
-				return FALSE;
-			break;
-		}
-
-		case DLL_PROCESS_DETACH:
-		{
-			if constexpr (UseDebugConsole())
-				::FreeConsole();
-			break;
-		}
-
-		case DLL_THREAD_ATTACH:
-		case DLL_THREAD_DETACH:
-		default:
-			break;
-	}
-    return TRUE;
+	return ::CallNextHookEx(nullptr, code, wParam, lParam);
 }

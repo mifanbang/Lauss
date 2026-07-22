@@ -18,68 +18,37 @@
 
 #include "Debug.h"
 #include "QtHook.h"
+#include "QtUtils.h"
 
 #include <windows.h>
 
 #include <cstdio>
 #include <optional>
+#include <ranges>
 #include <vector>
 
 
 namespace {
 
-// Inclusive of the passed in widget
-std::optional<std::vector<QWidget*>> FindOwningWidgetsUntil(QWidget& bottom, const char* parentCls)
-{
-	std::vector<QWidget*> parents;
-	for (QWidget* widget = &bottom; widget; widget = (widget->*QWidget::ParentWidget)())
-	{
-		parents.emplace_back(widget);
-
-		const auto metaObj = widget->metaObject();
-		const char* className = (metaObj->*QMetaObject::ClassName)();
-		Printf(
-			"  this=%p name=%S type=%s\n",
-			widget,
-			(widget->*QWidget::ObjectName)().data.Data(),
-			className
-		);
-
-		if (::lstrcmpiA(className, parentCls) == 0)
-			return parents;
-	}
-	return std::nullopt;
-}
 
 void HandleWidgetShowHook(QWidget& widget)
 {
 	if (const QString str = (widget.*QWidget::ObjectName)();
 		::lstrcmpiW(str.data.Data(), L"bannerWholeImage") == 0)
 	{
-		Printf("[QWidget::Show()] QObject with name \"bannerWholeImage\" found.\n");
-
-		const auto adWidgets = FindOwningWidgetsUntil(widget, "AdvertisementPanel");
-		if (!adWidgets)
-		{
-			// If we reached here, LINE must have changed its UI design or behavior.
-			Printf("[QWidget::Show()] Failed to hide ad banner due to unexpected QWidget hierarchy. The current LINE version is unsupported.\n");
-			return;
-		}
-
-		for (auto* adWidget : *adWidgets)
-			(adWidget->*QWidget::Resize)(0, 0);
+		ResizeAdWidget(widget);
 	}
 }
+
 
 }  // namespace
 
 
-decltype(&QWidget::show) Hook_QWidget::s_trampoline{ nullptr };
+decltype(&QWidget::show) HookedQWidget::s_trampoline{ nullptr };
 
 
-// If for any reason s_trampoline is null while this hook function gets called,
-// we should just let LINE crash.
-void Hook_QWidget::Show()
+// If for any reason s_trampoline is null while this hook function gets called, we should just let the LINE client crash.
+void HookedQWidget::Show()
 {
 	HandleWidgetShowHook(*this);
 

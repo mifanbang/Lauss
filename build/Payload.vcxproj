@@ -180,12 +180,14 @@
     <ClCompile Include="..\src\Payload\DllMain.cpp" />
     <ClCompile Include="..\src\Payload\QtHook.cpp" />
     <ClCompile Include="..\src\Payload\QtInterface.cpp" />
+    <ClCompile Include="..\src\Payload\QtUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\include\Debug.h" />
     <ClInclude Include="..\src\include\LaussDef.h" />
     <ClInclude Include="..\src\Payload\QtHook.h" />
     <ClInclude Include="..\src\Payload\QtInterface.h" />
+    <ClInclude Include="..\src\Payload\QtUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -21,10 +21,10 @@
 #include "QtInterface.h"
 
 
-struct Hook_QWidget : public QWidget
+
+struct HookedQWidget : public QWidget
 {
 	void Show();
 
 	static decltype(&QWidget::show) s_trampoline;
-	static size_t s_outputIndentCount;
 };
