@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <DynamicCall.h>
+#include <DllLookup.h>
 
 #include <Mutex.h>
 #include <Types.h>
@@ -80,13 +80,13 @@ namespace gan
 {
 
 
-void* DynamicCall::LoadLibAndGetProc(std::wstring_view lib, std::string_view func)
+void* DllLookup::LoadLibAndGetSymbol(std::wstring_view lib, std::string_view name)
 {
 	assert(lib.data());
-	assert(func.data());
+	assert(name.data());
 
 	if (auto hModule = LibraryManager::GetInstance().Get(lib))
-		return ::GetProcAddress(hModule, func.data());
+		return ::GetProcAddress(hModule, name.data());
 	return nullptr;
 }
 
