@@ -98,6 +98,48 @@ PayloadResult InitializePayload()
 }
 
 
+void WidgetSpyThread()
+{
+	constexpr const uint32_t k_sleepDurationMs = 20;  // 50 fps
+	constexpr const auto k_triggerKey = VK_CONTROL;
+
+	for (auto keyPressed = false;
+		/* run indefintely */;
+		::Sleep(k_sleepDurationMs))
+	{
+		const uint16_t keyState = ::GetKeyState(k_triggerKey);
+		const auto currKeyPressed = (keyState >> 8 != 0);
+		if (keyPressed == currKeyPressed)
+			continue;
+		keyPressed = currKeyPressed;
+		if (currKeyPressed)
+			continue;
+
+		::POINT cursorPos{ };
+		if (!::GetCursorPos(&cursorPos))
+			continue;
+
+		if (QWidget* widgetUnderCursor = QApplication::WidgetAt(cursorPos.x, cursorPos.y))
+		{
+			for (auto* widget : FindOwningWidgets(*widgetUnderCursor))
+			{
+				const auto* className = GetQtClassName(*widget);
+				const auto* parent = (widget->*QWidget::ParentWidget)();
+				Printf(
+					"[WidgetSpyThread] widget=%p objName=%S cls=%s parentCls=%s\n",
+					widget,
+					(widget->*QWidget::ObjectName)().data.Data(),
+					className,
+					parent ? GetQtClassName(*parent) : "(n/a)"
+				);
+
+				PrintMethodsWithSignalConnections(*widget);
+			}
+		}
+	}
+}
+
+
 bool OnProcessAttached()
 {
 	// Increment refcount to keep DLL alive after hooking process terminates
@@ -114,6 +156,12 @@ bool OnProcessAttached()
 
 	if (InitializePayload() == PayloadResult::Success)
 	{
+		if constexpr (UseDebugConsole())
+		{
+			std::thread thWidgetSpy{ WidgetSpyThread };
+			thWidgetSpy.detach();
+		}
+
 		// Hide existing banners
 		for (auto* adWidget : FindActiveBanners())
 			ResizeAdWidget(*adWidget);
