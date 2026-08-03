@@ -104,7 +104,7 @@ void WidgetSpyThread()
 	constexpr const auto k_triggerKey = VK_CONTROL;
 
 	for (auto keyPressed = false;
-		/* run indefintely */;
+		;  // Run infinitely
 		::Sleep(k_sleepDurationMs))
 	{
 		const uint16_t keyState = ::GetKeyState(k_triggerKey);
@@ -142,29 +142,28 @@ void WidgetSpyThread()
 
 bool OnProcessAttached()
 {
-	// Increment refcount to keep DLL alive after hooking process terminates
-	static auto hMod = ::LoadLibraryW(PayloadName());
+	if constexpr (UseDebugConsole())
+	{
+		::AllocConsole();
+		Printf("Lauss payload has started.\n");
+
+		// Hack: We probably shouldn't allocate console from DllMain's thread, but waiting for
+		//       a short while after console allocation seems to fix observable issues.
+		constexpr const uint32_t k_consoleWaitDurationMs = 1000;
+		::Sleep(k_consoleWaitDurationMs);
+	}
+
+	if (InitializePayload() != PayloadResult::Success)
+		return false;
+
+	// Hide existing banners
+	for (auto* adWidget : FindActiveBanners())
+		ResizeAdWidget(*adWidget);
 
 	if constexpr (UseDebugConsole())
 	{
-		FILE* fp;
-		::AllocConsole();
-		::freopen_s(&fp, "CONIN$", "r+t", stdin);
-		::freopen_s(&fp, "CONOUT$", "w+t", stdout);
-		::freopen_s(&fp, "CONOUT$", "w+t", stderr);
-	}
-
-	if (InitializePayload() == PayloadResult::Success)
-	{
-		if constexpr (UseDebugConsole())
-		{
-			std::thread thWidgetSpy{ WidgetSpyThread };
-			thWidgetSpy.detach();
-		}
-
-		// Hide existing banners
-		for (auto* adWidget : FindActiveBanners())
-			ResizeAdWidget(*adWidget);
+		std::thread thWidgetSpy{ WidgetSpyThread };
+		thWidgetSpy.detach();
 	}
 
 	return true;
@@ -184,15 +183,30 @@ void OnProcessDetached()
 
 BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 {
+	if (::GetModuleHandleW(L"launcher.exe"))
+		return TRUE;
+	else if (::GetModuleHandleW(L"line.exe") == nullptr)
+		return FALSE;
+
 	if (reason == DLL_PROCESS_ATTACH)
 	{
-		return static_cast<BOOL>(OnProcessAttached());
+		// Hack: Force Windows increment the ref count of payload DLL to avoid getting unloaded
+		//       after laucher uninstalls hook and exits process.
+		auto hMod = ::LoadLibraryW(PayloadName());
+
+		const auto payloadResult = OnProcessAttached();
+
+		// Hack: Failed to start payload. Can safely roll back ref count and unload normally.
+		if (!payloadResult && hMod)
+			::FreeLibrary(hMod);
+
+		return static_cast<BOOL>(payloadResult);
 	}
 	else if (reason == DLL_PROCESS_DETACH)
 	{
 		OnProcessDetached();
 	}
-    return TRUE;
+	return TRUE;
 }
 
 

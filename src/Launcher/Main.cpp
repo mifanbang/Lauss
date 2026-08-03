@@ -18,6 +18,8 @@
 
 #include "LaussDef.h"
 
+#include "Debug.h"
+
 #include <DllInjector.h>
 #include <Handle.h>
 #include <ModuleList.h>
@@ -136,10 +138,11 @@ public:
 		if (hHook == nullptr)
 			return InjectionResult::HookError;
 
-		const auto waitResult = WaitForPayload(pid, 5s);
-		::UnhookWindowsHookEx(hHook);
+		if (!WaitForPayload(pid, 5s))
+			return InjectionResult::SystemCallError;
 
-		return waitResult ? InjectionResult::Success : InjectionResult::SystemCallError;
+		::UnhookWindowsHookEx(hHook);
+		return InjectionResult::Success;
 	}
 
 private:
@@ -199,6 +202,6 @@ private:
 int main()
 {
 	const auto launchResult = LineProcessHelper::InjectPayload();
-	printf("Result: %s\n", LineProcessHelper::k_ResultStrings[std::to_underlying(launchResult)].data());
+	Printf("Result: %s\n", LineProcessHelper::k_ResultStrings[std::to_underlying(launchResult)].data());
 	return NO_ERROR;
 }

@@ -20,6 +20,8 @@
 
 #include <cstdio>
 
+#include <windows.h>
+
 
 consteval bool IsDebugBuild()
 {
@@ -38,11 +40,16 @@ consteval bool UseDebugConsole()
 
 
 template <class... Args>
-int Printf([[maybe_unused]] Args... args)
+void Printf([[maybe_unused]] Args... args)
 {
 	if constexpr (UseDebugConsole())
-		return printf(args...);
-	else
-		return 0;
+	{
+		char buffer[1024];
+		sprintf_s(buffer, sizeof(buffer), args...);
+
+		DWORD written;
+		constexpr void* k_unused = nullptr;
+		::WriteConsoleA(::GetStdHandle(STD_OUTPUT_HANDLE), buffer, ::lstrlenA(buffer), &written, k_unused);
+	}
 }
 
