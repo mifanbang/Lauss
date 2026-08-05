@@ -36,7 +36,7 @@ void HandleWidgetShowHook(QWidget& widget)
 	if (const QString str = (widget.*QWidget::ObjectName)();
 		::lstrcmpiW(str.data.Data(), L"bannerWholeImage") == 0)
 	{
-		ResizeAdWidget(widget);
+		HideBanner(widget);
 	}
 }
 

@@ -39,26 +39,6 @@ const char* GetQtClassName(const QObject& object)
 }
 
 
-// Inclusive of the bottom-most widget
-std::vector<QWidget*> FindOwningWidgets(QWidget& bottom)
-{
-	std::vector<QWidget*> parents;
-	for (QWidget* widget = &bottom; widget; widget = (widget->*QWidget::ParentWidget)())
-	{
-		parents.emplace_back(widget);
-
-		const auto* className = GetQtClassName(*widget);
-		Printf(
-			"[FindOwningWidgets()] this=%p objName=%S class=%s\n",
-			widget,
-			(widget->*QWidget::ObjectName)().data.Data(),
-			className
-		);
-	}
-	return parents;
-}
-
-
 std::vector<IndexedMethod> GetMethods(const QObject& object)
 {
 	const QMetaObject* metaObj = (object.metaObject)();
@@ -194,7 +174,26 @@ void PrintMethodsWithSignalConnections(QObject& object)
 }
 
 
-std::vector<QWidget*> FindActiveBanners()
+std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget)
+{
+	std::vector<QWidget*> parents;
+	for (QWidget* widget = &bottomWidget; widget; widget = (widget->*QWidget::ParentWidget)())
+	{
+		parents.emplace_back(widget);
+
+		const auto* className = GetQtClassName(*widget);
+		Printf(
+			"[FindOwningWidgets()] this=%p objName=%S class=%s\n",
+			widget,
+			(widget->*QWidget::ObjectName)().data.Data(),
+			className
+		);
+	}
+	return parents;
+}
+
+
+std::vector<QWidget*> FindBanners()
 {
 	constexpr const size_t k_expectedMaxBanner = 4;
 	std::vector<QWidget*> adWidgets;
@@ -202,7 +201,7 @@ std::vector<QWidget*> FindActiveBanners()
 
 	const auto topWidgets = QApplication::TopLevelWidgets();
 	const std::span<QWidget*> widgetSpan{ topWidgets.data.ptr, topWidgets.data.size };
-	Printf("[FindActiveBanners()] QApplication::TopLevelWidgets() returned %zu widgets.\n", widgetSpan.size());
+	Printf("[FindBanners()] QApplication::TopLevelWidgets() returned %zu widgets.\n", widgetSpan.size());
 
 	static wchar_t k_adWidgetName[] = L"bannerWholeImage";
 	static const QString adWidgetNameStr{
@@ -232,9 +231,9 @@ std::vector<QWidget*> FindActiveBanners()
 }
 
 
-bool ResizeAdWidget(QWidget& adBannerWidget)
+bool HideBanner(QWidget& bannerWidget)
 {
-	const auto owningWidgets = FindOwningWidgets(adBannerWidget);
+	const auto owningWidgets = FindOwningWidgets(bannerWidget);
 	const auto rootAdWidget =
 		std::views::enumerate(owningWidgets)
 		| std::views::filter([](const auto& kv) { return ::lstrcmpiA(GetQtClassName(*std::get<1>(kv)), "AdvertisementPanel") == 0; })
@@ -245,11 +244,11 @@ bool ResizeAdWidget(QWidget& adBannerWidget)
 	if (rootAdWidget.size() == 0)
 	{
 		// If we reached here, LINE must have changed its UI design or behavior.
-		Printf("[ResizeAdWidget()] Failed to hide ad banner due to unexpected QWidget hierarchy. The current LINE version might be unsupported.\n");
+		Printf("[HideBanner()] Failed to hide ad banner due to unexpected QWidget hierarchy. The current LINE version might be unsupported.\n");
 		return false;
 	}
 	const size_t numAdWidgets = rootAdWidget.front() + 1;
-	Printf("[ResizeAdWidget()] Hiding %zu widgets\n", numAdWidgets);
+	Printf("[HideBanner()] Hiding %zu widgets\n", numAdWidgets);
 
 	for (auto* adWidget : owningWidgets | std::views::take(numAdWidgets))
 	{

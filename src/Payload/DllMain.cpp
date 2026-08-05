@@ -157,8 +157,8 @@ bool OnProcessAttached()
 		return false;
 
 	// Hide existing banners
-	for (auto* adWidget : FindActiveBanners())
-		ResizeAdWidget(*adWidget);
+	for (auto* adWidget : FindBanners())
+		HideBanner(*adWidget);
 
 	if constexpr (UseDebugConsole())
 	{

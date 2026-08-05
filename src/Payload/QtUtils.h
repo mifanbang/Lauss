@@ -25,8 +25,7 @@
 #include <vector>
 
 
-
- // ------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
 // QObject, QMetaObject, etc.
 
 const char* GetQtClassName(const QObject& object);
@@ -48,12 +47,12 @@ void PrintMethodsWithSignalConnections(QObject& object);
 // ------------------------------------------------------------------------------
 // QWidget, etc.
 
-std::vector<QWidget*> FindOwningWidgets(QWidget& bottom);
+std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget);  // Inclusive of the bottom-most widget
 
-std::vector<QWidget*> FindActiveBanners();
+std::vector<QWidget*> FindBanners();
 
 
 // ------------------------------------------------------------------------------
 // High level operations specific to Lauss
 
-bool ResizeAdWidget(QWidget& adBannerWidget);
+bool HideBanner(QWidget& bannerWidget);
