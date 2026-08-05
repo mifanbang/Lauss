@@ -29,3 +29,18 @@ consteval auto LineImageName()
 {
 	return L"LINE.exe";
 }
+
+consteval auto BannerObjectName()
+{
+	return L"bannerWholeImage";
+}
+
+consteval auto BannerRootClassName()
+{
+	return "AdvertisementPanel";
+}
+
+consteval auto MainWindowClassName()
+{
+	return "AllInOneWindow";
+}

@@ -19,6 +19,7 @@
 #include "QtUtils.h"
 
 #include "Debug.h"
+#include "LaussDef.h"
 #include "QtHook.h"
 
 #include <windows.h>
@@ -203,19 +204,19 @@ std::vector<QWidget*> FindBanners()
 	const std::span<QWidget*> widgetSpan{ topWidgets.data.ptr, topWidgets.data.size };
 	Printf("[FindBanners()] QApplication::TopLevelWidgets() returned %zu widgets.\n", widgetSpan.size());
 
-	static wchar_t k_adWidgetName[] = L"bannerWholeImage";
+	static std::wstring s_bannerObjName = BannerObjectName();
 	static const QString adWidgetNameStr{
 		.data{
 			.d = nullptr,  // Raw string like QString::fromRawData(), no heap alloc or control block
-			.ptr = k_adWidgetName,
-			.size = sizeof(k_adWidgetName) / sizeof(k_adWidgetName[0]) - 1
+			.ptr = s_bannerObjName.data(),
+			.size = s_bannerObjName.size()
 		}
 	};
 
 	const QMetaObject* metaObjQWidget = QWidget::staticMetaObjectPtr;
 	for (auto* widget : widgetSpan)
 	{
-		if (::lstrcmpA(GetQtClassName(*widget), "AllInOneWindow") != 0)
+		if (::lstrcmpA(GetQtClassName(*widget), MainWindowClassName()) != 0)
 			continue;
 
 		QList<QWidget*> list{};
@@ -236,7 +237,7 @@ bool HideBanner(QWidget& bannerWidget)
 	const auto owningWidgets = FindOwningWidgets(bannerWidget);
 	const auto rootAdWidget =
 		std::views::enumerate(owningWidgets)
-		| std::views::filter([](const auto& kv) { return ::lstrcmpiA(GetQtClassName(*std::get<1>(kv)), "AdvertisementPanel") == 0; })
+		| std::views::filter([](const auto& kv) { return ::lstrcmpiA(GetQtClassName(*std::get<1>(kv)), BannerRootClassName()) == 0; })
 		| std::views::elements<0>
 		| std::views::take(1)
 		| std::ranges::to<std::vector>();

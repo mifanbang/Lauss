@@ -183,10 +183,8 @@ void OnProcessDetached()
 
 BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 {
-	if (::GetModuleHandleW(L"launcher.exe"))
+	if (::GetModuleHandleW(LineImageName()) == nullptr)
 		return TRUE;
-	else if (::GetModuleHandleW(L"line.exe") == nullptr)
-		return FALSE;
 
 	if (reason == DLL_PROCESS_ATTACH)
 	{
