@@ -36,15 +36,22 @@ bool ResolveQtFunctions();
 // Mockups of Qt types and interface used by the payload
 
 
+// ref: https://github.com/qt/qtbase/blob/6.6.3/src/corelib/tools/qarraydata.h
+struct QArrayData
+{
+	std::atomic<int> ref;
+	// ...
+};
+
 // ref: https://github.com/qt/qtbase/blob/6.6.3/src/corelib/tools/qarraydatapointer.h
 template <class T>
 struct QArrayDataPointer
 {
-	void* d;  // QTypedArrayData<T>
+	QArrayData* d;  // QTypedArrayData<T> : public QArrayData
 	T* ptr;
 	size_t size;
 
-	// TODO: destructor
+	~QArrayDataPointer();
 
 	const T* Data() const { return ptr; }
 };
@@ -276,6 +283,7 @@ public:
 #define DECL_SYM(sym)		public _SYMBOL(sym)
 #define QT6CORE		L"Qt6Core.dll"
 #define QT6WIDGETS	L"Qt6Widgets.dll"
+#define UCRTBASE	L"ucrtbase.dll"
 
 class DynamicImports
 	: public gan::Singleton<DynamicImports>
@@ -303,6 +311,8 @@ class DynamicImports
 	, DECL_SYM(QApplication::widgetAt)
 	// Qt internals
 	, DECL_SYM(qt_qFindChildren_helper)
+	// C runtime
+	, DECL_SYM(::free)
 {
 public:
 	DynamicImports()
@@ -330,6 +340,7 @@ public:
 		, _SYMBOL(QApplication::widgetAt)		{ QT6WIDGETS, "?widgetAt@QApplication@@SAPEAVQWidget@@HH@Z" }  // static QWidget* QApplication::widgetAt(int, int)
 		// Qt internals
 		, _SYMBOL(qt_qFindChildren_helper)		{ QT6CORE, "?qt_qFindChildren_helper@@YAXPEBVQObject@@AEBVQString@@AEBUQMetaObject@@PEAV?$QList@PEAX@@V?$QFlags@W4FindChildOption@Qt@@@@@Z" }  // void qt_qFindChildren_helper(const QObject*, const QString&, const QMetaObject&, QList<void*>*, QFlags<Qt::FindChildOption>)
+		, _SYMBOL(::free)						{ UCRTBASE, "free" }
 	{ };
 
 	static void* _RegisterImport(const wchar_t* lib, const char* sym)
@@ -357,3 +368,12 @@ private:
 #define _GET_SYM(sym)	(static_cast<_SYMBOL(sym)>(DynamicImports::GetInstance()))
 #define QP(sym)			(_GET_SYM(sym).addr)
 #define Q(sym)			(_GET_SYM(sym).operator())
+
+
+// Destructor depends on macro Q()
+template <class T>
+QArrayDataPointer<T>::~QArrayDataPointer()
+{
+	if (d && d->ref.fetch_sub(1, std::memory_order_acq_rel) == 1)
+		Q(::free)(d);
+}
