@@ -85,22 +85,6 @@ std::optional<std::vector<Connection*>> GetConnections(QObject& object, const ch
 }
 
 
-void PrintMethods(const std::vector<IndexedMethod>& methods)
-{
-	for (const auto& [idx, metaMethod] : methods)
-	{
-		const auto methodSig = Q(QMetaMethod::methodSignature)(metaMethod);
-		Printf(
-			"  method idx=%d type=%d ret=%s sig=%s\n",
-			idx,
-			Q(QMetaMethod::methodType)(metaMethod),
-			Q(QMetaMethod::typeName)(metaMethod),
-			methodSig.data.ptr
-		);
-	}
-}
-
-
 bool PrintConnectionsToSignal(QObject& object, const char* signal)
 {
 	const auto connections = GetConnections(object, signal);
