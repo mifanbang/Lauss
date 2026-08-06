@@ -18,13 +18,21 @@
 
 #pragma once
 
+#include <DllLookup.h>
+#include <Types.h>
+
+#include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <functional>
+#include <string>
+#include <type_traits>
 
 
 bool ResolveQtFunctions();
 
 
+// ------------------------------------------------------------------------------
 // Mockups of Qt types and interface used by the payload
 
 
@@ -77,11 +85,6 @@ struct QMetaMethod
 	QByteArray methodSignature() const;
 	MethodType methodType() const;
 	const char* typeName() const;
-
-	// Dynamically resolved function pointers
-	static decltype(&methodSignature) MethodSignature;
-	static decltype(&methodType) MethodType;
-	static decltype(&typeName) TypeName;
 };
 // ref: https://github.com/qt/qtbase/blob/6.6.3/src/corelib/kernel/qobjectdefs.h
 struct QMetaObject
@@ -91,12 +94,6 @@ struct QMetaObject
 	QMetaMethod method(int index) const;
 	int methodCount() const;
 	int methodOffset() const;
-
-	// Dynamically resolved function pointers
-	static decltype(&className) ClassName;
-	static decltype(&method) Method;
-	static decltype(&methodCount) MethodCount;
-	static decltype(&methodOffset) MethodOffset;
 };
 
 
@@ -184,9 +181,6 @@ struct QObjectPrivate : public QObjectData
 	ConnectionData* connections;  // <-- We need this
 
 	int signalIndex(const char* signalName, const QMetaObject** meta) const;
-
-	// Dynamically resolved function pointer
-	static decltype(&signalIndex) SignalIndex;
 };
 
 // ref: https://github.com/qt/qtbase/blob/6.6.3/src/corelib/kernel/qobject.h
@@ -198,14 +192,11 @@ struct QObject
 	QString objectName() const;
 
 	virtual const QMetaObject* metaObject() const;  // vtbl idx=0
-
-	// Dynamically resolved function pointer
-	static decltype(&objectName) ObjectName;
 };
 
 // ref: https://github.com/qt/qtbase/blob/6.6.3/src/corelib/kernel/qobject.h
 constexpr uint32_t k_FindChildrenRecursively = 1;
-extern void (*qt_qFindChildren_helper)(
+extern void qt_qFindChildren_helper(
 	const QObject* parent,
 	const QString& name,
 	const QMetaObject& mo,
@@ -216,20 +207,14 @@ extern void (*qt_qFindChildren_helper)(
 // ref: https://github.com/qt/qtbase/blob/6.6.3/src/widgets/kernel/qwidget.h
 struct QWidget : public QObject
 {
-	QWidget* parentWidget();
+	QWidget* parentWidget() const;
 	void resize(int w, int h);
 	void hide();
 
 	// Hook target
 	void show();
 
-	// Dynamically resolved function pointers
-	static decltype(&parentWidget) ParentWidget;
-	static decltype(&resize) Resize;
-	static decltype(&hide) Hide;
-
-	// Dynamically resolved data pointer
-	static const QMetaObject* staticMetaObjectPtr;
+	static const QMetaObject staticMetaObject;
 };
 
 
@@ -237,8 +222,138 @@ struct QWidget : public QObject
 struct QApplication {
 	static QList<QWidget*> topLevelWidgets();
 	static QWidget* widgetAt(int x, int y);
-
-	// Dynamically resolved function pointers
-	static decltype(&topLevelWidgets) TopLevelWidgets;
-	static decltype(&widgetAt) WidgetAt;
 };
+
+
+// ------------------------------------------------------------------------------
+// Helpers to make mocked Qt interfaces easier to use through manual dynamic
+// resolution, eliminating the need to have linker bind us to Qt library files.
+
+
+template <size_t N>
+struct _FixedString
+{
+	char _s[N];
+	constexpr _FixedString(const char (&s)[N]) { std::copy_n(s, N, _s); }
+};
+
+class DynamicImports;
+
+template <_FixedString s, class T>
+	requires std::is_member_function_pointer_v<T> || std::is_pointer_v<T>
+class _ImportedSymbol
+{
+public:
+	T addr;
+
+	_ImportedSymbol() = delete;
+	_ImportedSymbol(const wchar_t* lib, const char* sym)
+	{
+		if constexpr (std::is_member_function_pointer_v<T>)
+			addr = gan::ToMemFn<T>(DynamicImports::_RegisterImport(lib, sym));
+		else
+			addr = reinterpret_cast<T>(DynamicImports::_RegisterImport(lib, sym));
+	}
+	auto operator()(auto&& ...args) const
+	{
+		if constexpr (std::is_member_function_pointer_v<T>)
+			return std::mem_fn(addr)(std::forward<decltype(args)>(args)...);
+		else if constexpr (std::is_function_v<std::remove_pointer_t<T>>)
+			return addr(std::forward<decltype(args)>(args)...);
+		else
+			return addr;
+	}
+};
+
+#undef _CONCAT
+#ifndef _CONCAT
+	#define _CONCAT_INNER(a, b)	a##b
+	#define _CONCAT(a, b)	_CONCAT_INNER(a, b)
+#endif
+#define _EXPAND_TYPE(sym)	<#sym, decltype(&sym)>
+#define _SYMBOL(sym)		_CONCAT(_ImportedSymbol, _EXPAND_TYPE(sym))
+
+#define DECL_SYM(sym)		public _SYMBOL(sym)
+#define QT6CORE		L"Qt6Core.dll"
+#define QT6WIDGETS	L"Qt6Widgets.dll"
+
+class DynamicImports
+	: public gan::Singleton<DynamicImports>
+	// QMetaMethod
+	, DECL_SYM(QMetaMethod::methodSignature)
+	, DECL_SYM(QMetaMethod::methodType)
+	, DECL_SYM(QMetaMethod::typeName)
+	// QMetaObject
+	, DECL_SYM(QMetaObject::className)
+	, DECL_SYM(QMetaObject::method)
+	, DECL_SYM(QMetaObject::methodCount)
+	, DECL_SYM(QMetaObject::methodOffset)
+	// QObjectPrivate
+	, DECL_SYM(QObjectPrivate::signalIndex)
+	// QObject
+	, DECL_SYM(QObject::objectName)
+	// QWidget
+	, DECL_SYM(QWidget::hide)
+	, DECL_SYM(QWidget::parentWidget)
+	, DECL_SYM(QWidget::resize)
+	, DECL_SYM(QWidget::show)
+	, DECL_SYM(QWidget::staticMetaObject)
+	// QApplication
+	, DECL_SYM(QApplication::topLevelWidgets)
+	, DECL_SYM(QApplication::widgetAt)
+	// Qt internals
+	, DECL_SYM(qt_qFindChildren_helper)
+{
+public:
+	DynamicImports()
+		// QMetaMethod
+		: _SYMBOL(QMetaMethod::methodSignature)	{ QT6CORE, "?methodSignature@QMetaMethod@@QEBA?AVQByteArray@@XZ" }  // QByteArray QMetaMethod::methodSignature() const
+		, _SYMBOL(QMetaMethod::methodType)		{ QT6CORE, "?methodType@QMetaMethod@@QEBA?AW4MethodType@1@XZ" }  // QMetaMethod::MethodType QMetaMethod::methodType() const
+		, _SYMBOL(QMetaMethod::typeName)		{ QT6CORE, "?typeName@QMetaMethod@@QEBAPEBDXZ" }  // char const* QMetaMethod::typeName() const
+		// QMetaObject
+		, _SYMBOL(QMetaObject::className)		{ QT6CORE, "?className@QMetaObject@@QEBAPEBDXZ" }  // const char* QMetaObject::className() const
+		, _SYMBOL(QMetaObject::method)			{ QT6CORE, "?method@QMetaObject@@QEBA?AVQMetaMethod@@H@Z" }  // QMetaMethod QMetaObject::method(int) const
+		, _SYMBOL(QMetaObject::methodCount)		{ QT6CORE, "?methodCount@QMetaObject@@QEBAHXZ" }  // int QMetaObject::methodCount() const
+		, _SYMBOL(QMetaObject::methodOffset)	{ QT6CORE, "?methodOffset@QMetaObject@@QEBAHXZ" }  // int QMetaObject::methodOffset() const
+		// QObjectPrivate
+		, _SYMBOL(QObjectPrivate::signalIndex)	{ QT6CORE, "?signalIndex@QObjectPrivate@@QEBAHPEBDPEAPEBUQMetaObject@@@Z" }  // int QObjectPrivate::signalIndex(const char*, const QMetaObject**) const
+		// QObject
+		, _SYMBOL(QObject::objectName)			{ QT6CORE, "?objectName@QObject@@QEBA?AVQString@@XZ" }  // QString QObject::objectName() const
+		// QWidget
+		, _SYMBOL(QWidget::hide)				{ QT6WIDGETS, "?hide@QWidget@@QEAAXXZ" }  // void QWidget::hide()
+		, _SYMBOL(QWidget::parentWidget)		{ QT6WIDGETS, "?parentWidget@QWidget@@QEBAPEAV1@XZ" }  // QWidget* QWidget::parentWidget() const
+		, _SYMBOL(QWidget::resize)				{ QT6WIDGETS, "?resize@QWidget@@QEAAXHH@Z" }  // void QWidget::resize(int, int)
+		, _SYMBOL(QWidget::show)				{ QT6WIDGETS, "?show@QWidget@@QEAAXXZ" }  // void QWidget::show()
+		, _SYMBOL(QWidget::staticMetaObject)	{ QT6WIDGETS, "?staticMetaObject@QWidget@@2UQMetaObject@@B" }  // static QMetaObject const QWidget::staticMetaObject
+		// QApplication
+		, _SYMBOL(QApplication::topLevelWidgets){ QT6WIDGETS, "?topLevelWidgets@QApplication@@SA?AV?$QList@PEAVQWidget@@@@XZ" }  // static QList<QWidget*> QApplication::topLevelWidgets()
+		, _SYMBOL(QApplication::widgetAt)		{ QT6WIDGETS, "?widgetAt@QApplication@@SAPEAVQWidget@@HH@Z" }  // static QWidget* QApplication::widgetAt(int, int)
+		// Qt internals
+		, _SYMBOL(qt_qFindChildren_helper)		{ QT6CORE, "?qt_qFindChildren_helper@@YAXPEBVQObject@@AEBVQString@@AEBUQMetaObject@@PEAV?$QList@PEAX@@V?$QFlags@W4FindChildOption@Qt@@@@@Z" }  // void qt_qFindChildren_helper(const QObject*, const QString&, const QMetaObject&, QList<void*>*, QFlags<Qt::FindChildOption>)
+	{ };
+
+	static void* _RegisterImport(const wchar_t* lib, const char* sym)
+	{
+		auto* ptr = gan::DllLookup::Get<void*>(lib, sym);
+		if (ptr == nullptr)
+			DynamicImports::s_unresolved.emplace_back(sym);
+		return ptr;
+	}
+
+	static const std::vector<std::string>& GetUnresolvedSymbols()
+	{
+		return s_unresolved;
+	}
+
+private:
+	// Must be static or otherwise _ImportedSymbol constructions would precede s_unresolved's
+	static std::vector<std::string> s_unresolved;
+};
+
+#undef DECL_SYM
+#undef QT6CORE
+#undef QT6WIDGETS
+
+#define _GET_SYM(sym)	(static_cast<_SYMBOL(sym)>(DynamicImports::GetInstance()))
+#define QP(sym)			(_GET_SYM(sym).addr)
+#define Q(sym)			(_GET_SYM(sym).operator())

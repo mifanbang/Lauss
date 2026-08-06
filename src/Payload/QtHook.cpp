@@ -19,6 +19,7 @@
 #include "Debug.h"
 #include "LaussDef.h"
 #include "QtHook.h"
+#include "QtInterface.h"
 #include "QtUtils.h"
 
 #include <windows.h>
@@ -34,7 +35,7 @@ namespace {
 
 void HandleWidgetShowHook(QWidget& widget)
 {
-	if (const QString str = (widget.*QWidget::ObjectName)();
+	if (const QString str = Q(QObject::objectName)(widget);
 		::lstrcmpiW(str.data.Data(), BannerObjectName()) == 0)
 	{
 		HideBanner(widget);

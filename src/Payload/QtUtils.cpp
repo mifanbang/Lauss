@@ -21,6 +21,7 @@
 #include "Debug.h"
 #include "LaussDef.h"
 #include "QtHook.h"
+#include "QtInterface.h"
 
 #include <windows.h>
 
@@ -36,7 +37,7 @@
 const char* GetQtClassName(const QObject& object)
 {
 	const auto metaObj = object.metaObject();
-	return (metaObj->*QMetaObject::ClassName)();
+	return Q(QMetaObject::className)(metaObj);
 }
 
 
@@ -45,11 +46,11 @@ std::vector<IndexedMethod> GetMethods(const QObject& object)
 	const QMetaObject* metaObj = (object.metaObject)();
 
 	const auto idxRange = std::ranges::iota_view{
-		0, //(metaObj->*QMetaObject::MethodOffset)(),
-		(metaObj->*QMetaObject::MethodCount)()
+		0,  // , or Q(QMetaObject::methodOffset)(metaObj) for the leaf class only
+		Q(QMetaObject::methodCount)(metaObj)
 	};
 	auto methodList = idxRange
-		| std::views::transform( [metaObj](auto idx) { return std::make_pair(idx, (metaObj->*QMetaObject::Method)(idx)); })
+		| std::views::transform([metaObj](auto idx) { return std::make_pair(idx, Q(QMetaObject::method)(metaObj, idx)); })
 		| std::ranges::to<std::vector>();
 	return methodList;
 }
@@ -63,7 +64,7 @@ std::optional<std::vector<Connection*>> GetConnections(QObject& object, const ch
 		return std::nullopt;
 	}
 
-	const auto signalIndex = (object.d_ptr->*QObjectPrivate::SignalIndex)(signal, nullptr);
+	const auto signalIndex = Q(QObjectPrivate::signalIndex)(object.d_ptr, signal, nullptr);
 	if (signalIndex < 0
 		|| signalIndex >= object.d_ptr->connections->signalVector->allocated)
 	{
@@ -88,12 +89,12 @@ void PrintMethods(const std::vector<IndexedMethod>& methods)
 {
 	for (const auto& [idx, metaMethod] : methods)
 	{
-		const auto methodSig = (metaMethod.*QMetaMethod::MethodSignature)();
+		const auto methodSig = Q(QMetaMethod::methodSignature)(metaMethod);
 		Printf(
 			"  method idx=%d type=%d ret=%s sig=%s\n",
 			idx,
-			(metaMethod.*QMetaMethod::MethodType)(),
-			(metaMethod.*QMetaMethod::TypeName)(),
+			Q(QMetaMethod::methodType)(metaMethod),
+			Q(QMetaMethod::typeName)(metaMethod),
 			methodSig.data.ptr
 		);
 	}
@@ -133,10 +134,10 @@ bool PrintConnectionsToSignal(QObject& object, const char* signal)
 		{
 			const auto* metaObj = receiverObj->metaObject();
 			const auto methodIndex = static_cast<int32_t>(conn->methodOffset + conn->methodRelative);
-			const auto slotMethod = (metaObj->*QMetaObject::Method)(methodIndex);
+			const auto slotMethod = Q(QMetaObject::method)(metaObj, methodIndex);
 			const char* methodSig =
-				(methodIndex >= 0 && methodIndex < (metaObj->*QMetaObject::MethodCount)())
-				? (slotMethod.*QMetaMethod::MethodSignature)().data.ptr
+				(methodIndex >= 0 && methodIndex < Q(QMetaObject::methodCount)(metaObj))
+				? Q(QMetaMethod::methodSignature)(slotMethod).data.ptr
 				: "invalid";
 
 			Printf(
@@ -159,13 +160,13 @@ void PrintMethodsWithSignalConnections(QObject& object)
 {
 	for (const auto& [idx, metaMethod] : GetMethods(object))
 	{
-		const auto signature = (metaMethod.*QMetaMethod::MethodSignature)();
-		const auto methodType = (metaMethod.*QMetaMethod::MethodType)();
+		const auto signature = Q(QMetaMethod::methodSignature)(metaMethod);
+		const auto methodType = Q(QMetaMethod::methodType)(metaMethod);
 		Printf(
 			"  method idx=%d type=%d ret=%s sig=%s\n",
 			idx,
 			methodType,
-			(metaMethod.*QMetaMethod::TypeName)(),
+			Q(QMetaMethod::typeName)(metaMethod),
 			signature.data.ptr
 		);
 
@@ -178,7 +179,7 @@ void PrintMethodsWithSignalConnections(QObject& object)
 std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget)
 {
 	std::vector<QWidget*> parents;
-	for (QWidget* widget = &bottomWidget; widget; widget = (widget->*QWidget::ParentWidget)())
+	for (QWidget* widget = &bottomWidget; widget; widget = Q(QWidget::parentWidget)(widget))
 	{
 		parents.emplace_back(widget);
 
@@ -186,7 +187,7 @@ std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget)
 		Printf(
 			"[FindOwningWidgets()] this=%p objName=%S class=%s\n",
 			widget,
-			(widget->*QWidget::ObjectName)().data.Data(),
+			Q(QObject::objectName)(widget).data.Data(),
 			className
 		);
 	}
@@ -200,7 +201,7 @@ std::vector<QWidget*> FindBanners()
 	std::vector<QWidget*> adWidgets;
 	adWidgets.reserve(k_expectedMaxBanner);
 
-	const auto topWidgets = QApplication::TopLevelWidgets();
+	const auto topWidgets = Q(QApplication::topLevelWidgets)();
 	const std::span<QWidget*> widgetSpan{ topWidgets.data.ptr, topWidgets.data.size };
 	Printf("[FindBanners()] QApplication::TopLevelWidgets() returned %zu widgets.\n", widgetSpan.size());
 
@@ -213,14 +214,14 @@ std::vector<QWidget*> FindBanners()
 		}
 	};
 
-	const QMetaObject* metaObjQWidget = QWidget::staticMetaObjectPtr;
+	const QMetaObject* metaObjQWidget = Q(QWidget::staticMetaObject)();
 	for (auto* widget : widgetSpan)
 	{
 		if (::lstrcmpA(GetQtClassName(*widget), MainWindowClassName()) != 0)
 			continue;
 
 		QList<QWidget*> list{};
-		qt_qFindChildren_helper(widget, adWidgetNameStr, *metaObjQWidget, &list, k_FindChildrenRecursively);
+		Q(qt_qFindChildren_helper)(widget, adWidgetNameStr, *metaObjQWidget, &list, k_FindChildrenRecursively);
 		for (size_t i = 0; i < list.data.size; ++i)
 		{
 			if (auto* w = list.data.ptr[i])
@@ -253,8 +254,8 @@ bool HideBanner(QWidget& bannerWidget)
 
 	for (auto* adWidget : owningWidgets | std::views::take(numAdWidgets))
 	{
-		(adWidget->*QWidget::Resize)(0, 1);
-		(adWidget->*QWidget::Hide)();
+		Q(QWidget::resize)(adWidget, 0, 1);
+		Q(QWidget::hide)(adWidget);
 	}
 
 	return true;
