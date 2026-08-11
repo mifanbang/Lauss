@@ -42,7 +42,6 @@ using namespace std::literals;
 namespace
 {
 
-
 std::wstring GetCurrentDirectoryW()
 {
 	const DWORD lengthNeeded = ::GetCurrentDirectoryW(0, nullptr);
@@ -77,34 +76,12 @@ public:
 		"SystemCallError"sv
 	};
 
-	// .first = process is found
-	// .second = payload is found
-	static std::pair<bool, bool> FindPayloadInProcess(uint32_t pid)
-	{
-		if (const auto modList = gan::ModuleEnumerator{}(pid))
-		{
-			const auto itr = std::find_if(
-				modList->begin(),
-				modList->end(),
-				[](const auto& mod) -> bool { return StrStrIW(mod.imageName.c_str(), PayloadName()); }
-			);
-			return std::make_pair(true, itr != modList->end());
-		}
-		return std::make_pair(false, false);
-	}
-
 	static InjectionResult InjectPayload()
 	{
 		const auto targetPidTid = GetProcessThreadIds();
 		if (!targetPidTid)
 			return InjectionResult::ProcessNotFound;
-
 		const auto [pid, tid] = *targetPidTid;
-		const auto [procFound, payloadFound] = FindPayloadInProcess(pid);
-		if (!procFound)
-			return InjectionResult::ProcessNotFound;
-		else if (payloadFound)
-			return InjectionResult::AlreadyActive;  // Payload already injected
 
 		constexpr BOOL k_notInheritable = FALSE;
 		constexpr DWORD k_procAccessFlags =
@@ -112,10 +89,20 @@ public:
 			| PROCESS_VM_WRITE
 			| PROCESS_SUSPEND_RESUME
 			| SYNCHRONIZE;
-		gan::AutoWinHandle hProc{ OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
+		gan::AutoWinHandle hProc{ ::OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
 		assert(hProc);
 		if (!hProc)
+		{
 			return InjectionResult::SystemCallError;  // Note: could also be process terminated
+		}
+		else
+		{
+			const auto payloadFound = PayloadExistsIn(*hProc);
+			if (!payloadFound)
+				return InjectionResult::ProcessNotFound;
+			else if (payloadFound.value())
+				return InjectionResult::AlreadyActive;
+		}
 
 		constexpr DWORD k_threadAccessFlags =
 			THREAD_QUERY_INFORMATION
@@ -124,7 +111,7 @@ public:
 			| THREAD_GET_CONTEXT
 			| THREAD_SET_CONTEXT
 			| SYNCHRONIZE;
-		gan::AutoWinHandle hThread{ OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
+		gan::AutoWinHandle hThread{ ::OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
 		assert(hThread);
 		if (!hThread)
 			return InjectionResult::SystemCallError;  // Note: could also be process terminated
@@ -140,7 +127,7 @@ public:
 		if (hHook == nullptr)
 			return InjectionResult::HookError;
 
-		if (!WaitForPayload(pid, 5s))
+		if (!WaitForPayload(*hProc, 5s))
 			return InjectionResult::SystemCallError;
 
 		::UnhookWindowsHookEx(hHook);
@@ -154,7 +141,7 @@ private:
 		{
 			for (const auto& proc : *procList)
 			{
-				if (StrStrIW(proc.imageName.c_str(), LineImageName()))
+				if (::StrStrIW(proc.imageName.c_str(), LineImageName()))
 					return proc.pid;
 			}
 		}
@@ -181,7 +168,21 @@ private:
 		return std::nullopt;
 	}
 
-	static bool WaitForPayload(uint32_t pid, std::chrono::seconds timeout)
+	static std::optional<bool> PayloadExistsIn(gan::WinHandle process)
+	{
+		if (const auto modList = gan::ModuleEnumerator{}(process))
+		{
+			const auto itr = std::find_if(
+				modList->begin(),
+				modList->end(),
+				[](const auto& mod) -> bool { return ::StrStrIW(mod.imageName.c_str(), PayloadName()); }
+			);
+			return std::make_optional(itr != modList->end());
+		}
+		return std::nullopt;
+	}
+
+	static bool WaitForPayload(gan::WinHandle process, std::chrono::seconds timeout)
 	{
 		constexpr static std::chrono::milliseconds k_checkInterval{ 100ms };
 
@@ -189,14 +190,17 @@ private:
 			counter < timeout;
 			counter += k_checkInterval)
 		{
-			if (FindPayloadInProcess(pid).second)
-				return true;
-			Sleep(static_cast<DWORD>(k_checkInterval.count()));
+			const auto payloadFound = PayloadExistsIn(process);
+			if (!payloadFound)
+				return false;  // Process likely terminated
+			else if (payloadFound.value())
+				return true;  // Payload detected in target memory
+
+			::Sleep(static_cast<DWORD>(k_checkInterval.count()));
 		}
 		return false;
 	}
 };
-
 
 }  // unnamed namespace
 
