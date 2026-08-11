@@ -83,7 +83,7 @@ PayloadResult InitializePayload()
 }
 
 
-void WidgetSpyThread()
+[[maybe_unused]] void WidgetSpyThread()
 {
 	constexpr const uint32_t k_sleepDurationMs = 20;  // 50 fps
 	constexpr const auto k_triggerKey = VK_CONTROL;

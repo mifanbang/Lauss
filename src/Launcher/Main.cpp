@@ -132,6 +132,8 @@ public:
 		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
 		const auto hMod = ::LoadLibraryW(path.c_str());
 		assert(hMod);
+		if (hMod == nullptr)
+			return InjectionResult::HookError;
 		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
 		assert(hHookProc);
 		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));

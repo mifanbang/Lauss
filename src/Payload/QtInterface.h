@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
 #include <string>
 #include <type_traits>
@@ -236,15 +237,12 @@ struct QApplication {
 // Helpers to make mocked Qt interfaces easier to use through manual dynamic
 // resolution, eliminating the need to have linker bind us to Qt library files.
 
-
 template <size_t N>
 struct _FixedString
 {
 	char _s[N];
 	constexpr _FixedString(const char (&s)[N]) { std::copy_n(s, N, _s); }
 };
-
-class DynamicImports;
 
 template <_FixedString s, class T>
 	requires std::is_member_function_pointer_v<T> || std::is_pointer_v<T>
@@ -254,15 +252,12 @@ public:
 	T addr;
 
 	_ImportedSymbol() = delete;
-	_ImportedSymbol(const wchar_t* lib, const char* sym)
-	{
-		if constexpr (std::is_member_function_pointer_v<T>)
-			addr = gan::ToMemFn<T>(DynamicImports::_RegisterImport(lib, sym));
-		else
-			addr = reinterpret_cast<T>(DynamicImports::_RegisterImport(lib, sym));
-	}
+	_ImportedSymbol(const wchar_t* lib, const char* sym);
+
 	auto operator()(auto&& ...args) const
 	{
+		if (addr == nullptr)
+			std::abort();
 		if constexpr (std::is_member_function_pointer_v<T>)
 			return std::mem_fn(addr)(std::forward<decltype(args)>(args)...);
 		else if constexpr (std::is_function_v<std::remove_pointer_t<T>>)
@@ -272,14 +267,7 @@ public:
 	}
 };
 
-#undef _CONCAT
-#ifndef _CONCAT
-	#define _CONCAT_INNER(a, b)	a##b
-	#define _CONCAT(a, b)	_CONCAT_INNER(a, b)
-#endif
-#define _EXPAND_TYPE(sym)	<#sym, decltype(&sym)>
-#define _SYMBOL(sym)		_CONCAT(_ImportedSymbol, _EXPAND_TYPE(sym))
-
+#define _SYMBOL(sym)		_ImportedSymbol<#sym, decltype(&sym)>
 #define DECL_SYM(sym)		public _SYMBOL(sym)
 #define QT6CORE		L"Qt6Core.dll"
 #define QT6WIDGETS	L"Qt6Widgets.dll"
@@ -360,6 +348,17 @@ private:
 	// Must be static or otherwise _ImportedSymbol constructions would precede s_unresolved's
 	static std::vector<std::string> s_unresolved;
 };
+
+// Custom constructor depends on static member function DynamicImports::_RegisterImport()
+template <_FixedString s, class T>
+	requires std::is_member_function_pointer_v<T> || std::is_pointer_v<T>
+_ImportedSymbol<s, T>::_ImportedSymbol(const wchar_t* lib, const char* sym)
+{
+	if constexpr (std::is_member_function_pointer_v<T>)
+		addr = gan::ToMemFn<T>(DynamicImports::_RegisterImport(lib, sym));
+	else
+		addr = reinterpret_cast<T>(DynamicImports::_RegisterImport(lib, sym));
+}
 
 #undef DECL_SYM
 #undef QT6CORE
