@@ -40,11 +40,11 @@ public:
 		Succeeded,
 
 		GetContextFailed,
+		RemoteAllocFailed,
 		DLLPathNotWritten,
 		StackFrameNotWritten,
 		SetContextFailed
 	};
-
 
 	DllInjectorByContext(WinHandle hProcess, WinHandle hThread);
 
@@ -53,7 +53,6 @@ public:
 	DllInjectorByContext& operator=(const DllInjectorByContext&) = delete;
 
 	Result Inject(std::wstring_view dllPath);
-
 
 private:
 	AutoWinHandle m_hProcess;

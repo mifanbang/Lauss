@@ -29,7 +29,7 @@ class HandleHelper
 {
 public:
 	template <class HandleType>
-	static HandleType Duplicate(HandleType handle) = delete;
+	static HandleType Duplicate(HandleType handle) noexcept = delete;
 
 	template <> WinHandle Duplicate<WinHandle>(WinHandle handle) noexcept;
 };
@@ -37,9 +37,10 @@ public:
 
 template <typename ImplType>
 	requires (
+		// Contract of being AutoHandle-capable
 		requires (ImplType) {
 			typename ImplType::RawHandle;
-			{ ImplType::Close((ImplType::RawHandle)(0)) };
+			{ ImplType::Close(typename ImplType::RawHandle{ nullptr }) };
 		}
 	)
 class AutoHandle
@@ -68,20 +69,20 @@ public:
 	constexpr AutoHandle(AutoHandle&& other) noexcept
 		: m_handle(std::move(other.m_handle))
 	{
-		other.m_handle = (ImplType::RawHandle)(0);
+		other.m_handle = typename ImplType::RawHandle{ nullptr };
 	}
 	AutoHandle& operator=(AutoHandle&& other) noexcept
 	{
 		Invalidate();
 		m_handle = other.m_handle;
-		other.m_handle = reinterpret_cast<ImplType::RawHandle>(nullptr);
+		other.m_handle = typename ImplType::RawHandle{ nullptr };
 		return *this;
 	}
 
 	constexpr explicit operator bool() const
 	{
-		return m_handle != (ImplType::RawHandle)(0)
-			&& m_handle != (ImplType::RawHandle)(-1);  // INVALID_HANDLE_VALUE := -1
+		return m_handle != typename ImplType::RawHandle{ nullptr }
+			&& m_handle != (typename ImplType::RawHandle)(-1);  // INVALID_HANDLE_VALUE := -1
 	}
 	constexpr ImplType::RawHandle operator*() const noexcept { return m_handle; }
 	ImplType::RawHandle& GetRef() noexcept					 { return m_handle; }
@@ -94,24 +95,30 @@ public:
 		if (operator bool())
 		{
 			ImplType::Close(m_handle);
-			m_handle = reinterpret_cast<ImplType::RawHandle>(nullptr);
+			m_handle = typename ImplType::RawHandle{ nullptr };
 		}
 	}
 
 private:
-	ImplType::RawHandle m_handle;
+	ImplType::RawHandle m_handle{ nullptr };
 };
 
 
 namespace internal
 {
-	struct AutoWinHandleImpl
+	struct _AutoWinHandleImpl
 	{
 		using RawHandle = WinHandle;
 		static void Close(RawHandle handle) noexcept;
 	};
+	struct _AutoWinModuleImpl
+	{
+		using RawHandle = WinModule;
+		static void Close(RawHandle handle) noexcept;
+	};
 }
-using AutoWinHandle = AutoHandle<internal::AutoWinHandleImpl>;
+using AutoWinHandle = AutoHandle<internal::_AutoWinHandleImpl>;
+using AutoWinModule = AutoHandle<internal::_AutoWinModuleImpl>;
 
 
 }  // namespace gan

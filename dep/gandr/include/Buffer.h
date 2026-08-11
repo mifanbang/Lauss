@@ -45,7 +45,7 @@ public:
 	Buffer(size_t capacity, size_t size, uint8_t* addr, Private) noexcept;
 	~Buffer();
 
-	// Non-copyable & non-movable, since there can be no invalidated buffer
+	// Non-copyable & non-movable, since there can be no invalidated Buffer object
 	Buffer(const Buffer&) = delete;
 	Buffer(Buffer&&) = delete;
 	Buffer& operator=(const Buffer&) = delete;
@@ -60,10 +60,9 @@ public:
 	size_t GetSize() const noexcept		{ return m_size; }
 	bool Resize(size_t newSize) noexcept;
 
-
 private:
 	size_t m_capacity;
-	size_t m_size;  // size in use
+	size_t m_size;  // Size in use
 	uint8_t* m_data;
 };
 
