@@ -20,6 +20,7 @@
 
 #include <Hook.h>
 #include <PE.h>
+#include <Types.h>
 
 #include <string_view>
 
@@ -134,13 +135,14 @@ DEFINE_TESTSUITE_START(Hook_Kernel32)
 		static FARPROC __stdcall _GetProcAddress(HMODULE hModule, LPCSTR lpProcName)
 		{
 			if (strcmp(lpProcName, "GetProcAddress") == 0)
-				return reinterpret_cast<FARPROC>(_GetProcAddress);
+				return gan::AnyFnToFn<FARPROC>(_GetProcAddress);
 			else
 				return gan::Hook::GetTrampoline(GetProcAddress)(hModule, lpProcName);
 		}
 
 		static DWORD __stdcall _GetCurrentProcessId()
 		{
+#pragma warning(suppress : 6387)  // Suppressing: 'GetModuleHandleA("kernel32")' could be '0'
 			const auto func = GetProcAddress(GetModuleHandleA("kernel32"), "GetCurrentProcessId");
 			return gan::Hook::GetTrampolineUnsafe<decltype(&GetCurrentProcessId)>(gan::ConstMemAddr{ func })();
 		}
@@ -155,7 +157,7 @@ DEFINE_TESTSUITE_START(Hook_Kernel32)
 		gan::Hook hook { GetProcAddress, _GetProcAddress };
 
 		ASSERT(hook.Install() == gan::Hook::OpResult::Hooked);
-		EXPECT(GetProcAddress(hMod, "GetProcAddress") == reinterpret_cast<FARPROC>(_GetProcAddress));
+		EXPECT(GetProcAddress(hMod, "GetProcAddress") == gan::AnyFnToFn<FARPROC>(_GetProcAddress));
 		ASSERT(hook.Uninstall() == gan::Hook::OpResult::Unhooked);
 	}
 	DEFINE_TEST_END
@@ -163,6 +165,8 @@ DEFINE_TESTSUITE_START(Hook_Kernel32)
 	// Test for calling gan::Hook::GetTrampolineUnsafe (see the hook function, _GetCurrentProcessId).
 	DEFINE_TEST_START(GetTrampolineUnsafe)
 	{
+		HMODULE hMod = GetModuleHandleA("kernel32");
+		ASSERT(hMod);
 		gan::Hook hook { GetCurrentProcessId, _GetCurrentProcessId };
 
 		ASSERT(hook.Install() == gan::Hook::OpResult::Hooked);

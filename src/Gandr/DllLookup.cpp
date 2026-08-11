@@ -18,6 +18,7 @@
 
 #include <DllLookup.h>
 
+#include <Handle.h>
 #include <Mutex.h>
 #include <Types.h>
 
@@ -30,7 +31,6 @@
 
 namespace
 {
-
 
 class LibraryManager : public gan::Singleton<LibraryManager>
 {
@@ -45,33 +45,17 @@ public:
 		if (auto hModule = ::LoadLibraryW(lib.data()))
 		{
 			// FreeLibrary on destructor
-			m_libUnloadList.ApplyOperation(
-				[hModule](auto& libs) { return libs.emplace_back(hModule); }
-			);
+			m_libUnloadList.Do( [hModule](auto* libs) {
+				libs->emplace_back(hModule);
+			} );
 			return hModule;
 		}
 		return nullptr;
 	}
 
 private:
-	LibraryManager() = default;
-
-	~LibraryManager()
-	{
-		m_libUnloadList.ApplyOperation( [](auto& libs) noexcept {
-			for (auto item : libs)
-				::FreeLibrary(item);
-		} );
-	}
-
-	LibraryManager(const LibraryManager&) = delete;
-	LibraryManager(LibraryManager&&) = delete;
-	LibraryManager& operator=(const LibraryManager&) = delete;
-	LibraryManager& operator=(LibraryManager&&) = delete;
-
-	gan::ThreadSafeResource<std::vector<HMODULE>> m_libUnloadList;
+	gan::ThreadSafeResource<std::vector<gan::AutoWinModule>> m_libUnloadList;
 };
-
 
 }  // unnamed namespace
 
@@ -79,16 +63,14 @@ private:
 namespace gan
 {
 
-
 void* DllLookup::LoadLibAndGetSymbol(std::wstring_view lib, std::string_view name)
 {
 	assert(lib.data());
 	assert(name.data());
 
 	if (auto hModule = LibraryManager::GetInstance().Get(lib))
-		return ::GetProcAddress(hModule, name.data());
+		return FromAnyFn(::GetProcAddress(hModule, name.data()));
 	return nullptr;
 }
-
 
 }  // namespace gan

@@ -26,7 +26,6 @@
 namespace
 {
 
-
 // Fill in data in PeHeaders::sectionHeaderList
 void SetUpSectionHeaders(gan::ConstMemAddr baseAddr, gan::PeHeaders& headers)
 {
@@ -44,7 +43,6 @@ void SetUpSectionHeaders(gan::ConstMemAddr baseAddr, gan::PeHeaders& headers)
 		addrSectionHeader = addrSectionHeader.Offset(sizeof(IMAGE_SECTION_HEADER));
 	}
 }
-
 
 // Fill in data in PeHeaders::exportData
 void SetUpExportDirectory(gan::ConstMemAddr baseAddr, gan::PeHeaders& headers)
@@ -102,13 +100,11 @@ void SetUpExportDirectory(gan::ConstMemAddr baseAddr, gan::PeHeaders& headers)
 	}
 }
 
-
-}
+}  // unnamed namespace
 
 
 namespace gan
 {
-
 
 std::optional<uint32_t> PeHeaders::FindSectionByName(uint32_t startIndex, std::u8string_view name) const noexcept
 {
@@ -131,7 +127,6 @@ std::optional<uint32_t> PeHeaders::FindSectionByName(uint32_t startIndex, std::u
 	}
 	return std::optional<uint32_t>{ std::nullopt };
 }
-
 
 std::optional<PeHeaders> PeImageHelper::GetLoadedHeaders(ConstMemAddr addr)
 {
@@ -162,6 +157,5 @@ std::optional<PeHeaders> PeImageHelper::GetLoadedHeaders(ConstMemAddr addr)
 
 	return resultOpt;
 }
-
 
 }  // namespace gan
