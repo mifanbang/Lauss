@@ -29,10 +29,12 @@
 #include <shlwapi.h>
 #pragma comment(lib, "shlwapi.lib")
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <chrono>
 #include <optional>
+#include <ranges>
 #include <utility>
 
 
@@ -53,13 +55,22 @@ std::wstring GetCurrentDirectoryW()
 	return result;
 }
 
+std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
+{
+	gan::WinDword exitCode;
+	const auto getExitCodeResult = ::GetExitCodeProcess(proc, &exitCode);
+
+	return getExitCodeResult ?
+		std::make_optional(exitCode == STILL_ACTIVE)
+		: std::nullopt;
+}
+
 
 class LineProcessHelper
 {
 public:
-	enum class InjectionResult
+	enum class InjectionError
 	{
-		Success,
 		AlreadyActive,
 		ProcessNotFound,
 		HookError,
@@ -67,43 +78,78 @@ public:
 
 		Count
 	};
-	constexpr static std::array<std::string_view, std::to_underlying(InjectionResult::Count)> k_ResultStrings
+	constexpr static std::array<std::string_view, std::to_underlying(InjectionError::Count)> k_ResultStrings
 	{
-		"Success"sv,
 		"AlreadyActive"sv,
 		"ProcessNotFound"sv,
 		"HookError"sv,
 		"SystemCallError"sv
 	};
 
-	static InjectionResult InjectPayload()
+	static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid)
 	{
-		const auto targetPidTid = GetProcessThreadIds();
-		if (!targetPidTid)
-			return InjectionResult::ProcessNotFound;
-		const auto [pid, tid] = *targetPidTid;
+		auto hProc = OpenTargetProcess(pid);
+		assert(hProc);
+		if (!hProc)
+		{
+			// Either process not accessible or terminated
+			return std::unexpected{ InjectionError::ProcessNotFound };
+		}
+		else
+		{
+			const auto payloadFound = PayloadExistsIn(*hProc);
+			if (!payloadFound)
+				return std::unexpected{ InjectionError::ProcessNotFound };  // Error during module enumeration
+			else if (payloadFound.value())
+				return std::unexpected{ InjectionError::AlreadyActive };
+		}
 
+		const auto tid = GetTargetThreadId(pid);
+		if (!tid)
+			return std::unexpected{ InjectionError::ProcessNotFound };  // Likely process terminated
+		auto hThread = OpenTargetThread(*tid);
+		assert(hThread);
+		if (!hThread)
+			return std::unexpected{ InjectionError::SystemCallError };  // Note: could also be process terminated
+
+		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
+		const auto hMod = ::LoadLibraryW(path.c_str());
+		assert(hMod);
+		if (hMod == nullptr)
+			return std::unexpected{ InjectionError::HookError };
+		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
+		assert(hHookProc);
+		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
+		if (hHook == nullptr)
+			return std::unexpected{ InjectionError::HookError };
+
+		if (!WaitForPayload(*hProc, 5s))
+			return std::unexpected{ InjectionError::SystemCallError };
+
+		::UnhookWindowsHookEx(hHook);
+		return hProc;
+	}
+
+	static auto GetTargetProcessList()
+	{
+		return gan::ProcessEnumerator{}().value_or({ })
+			| std::views::filter([](const auto& proc) { return ::StrStrIW(proc.imageName.c_str(), LineImageName()); });
+	}
+
+	static gan::AutoWinHandle OpenTargetProcess(uint32_t pid)
+	{
 		constexpr BOOL k_notInheritable = FALSE;
 		constexpr DWORD k_procAccessFlags =
 			PROCESS_VM_OPERATION
 			| PROCESS_VM_WRITE
 			| PROCESS_SUSPEND_RESUME
 			| SYNCHRONIZE;
-		gan::AutoWinHandle hProc{ ::OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
-		assert(hProc);
-		if (!hProc)
-		{
-			return InjectionResult::SystemCallError;  // Note: could also be process terminated
-		}
-		else
-		{
-			const auto payloadFound = PayloadExistsIn(*hProc);
-			if (!payloadFound)
-				return InjectionResult::ProcessNotFound;
-			else if (payloadFound.value())
-				return InjectionResult::AlreadyActive;
-		}
+		return gan::AutoWinHandle{ ::OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
+	}
 
+	static gan::AutoWinHandle OpenTargetThread(uint32_t tid)
+	{
+		constexpr BOOL k_notInheritable = FALSE;
 		constexpr DWORD k_threadAccessFlags =
 			THREAD_QUERY_INFORMATION
 			| THREAD_SET_INFORMATION
@@ -111,59 +157,16 @@ public:
 			| THREAD_GET_CONTEXT
 			| THREAD_SET_CONTEXT
 			| SYNCHRONIZE;
-		gan::AutoWinHandle hThread{ ::OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
-		assert(hThread);
-		if (!hThread)
-			return InjectionResult::SystemCallError;  // Note: could also be process terminated
-
-		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
-		const auto hMod = ::LoadLibraryW(path.c_str());
-		assert(hMod);
-		if (hMod == nullptr)
-			return InjectionResult::HookError;
-		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
-		assert(hHookProc);
-		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
-		if (hHook == nullptr)
-			return InjectionResult::HookError;
-
-		if (!WaitForPayload(*hProc, 5s))
-			return InjectionResult::SystemCallError;
-
-		::UnhookWindowsHookEx(hHook);
-		return InjectionResult::Success;
+		return gan::AutoWinHandle{ ::OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
 	}
 
 private:
-	static std::optional<uint32_t> GetProcessId()
-	{
-		if (const auto procList = gan::ProcessEnumerator{}())
-		{
-			for (const auto& proc : *procList)
-			{
-				if (::StrStrIW(proc.imageName.c_str(), LineImageName()))
-					return proc.pid;
-			}
-		}
-		return std::nullopt;
-	}
-
-	static std::optional<uint32_t> GetThreadId(uint32_t pid)
+	static std::optional<uint32_t> GetTargetThreadId(uint32_t pid)
 	{
 		if (const auto threadList = gan::ThreadEnumerator{}(pid);
 			threadList && threadList->size() > 0)
 		{
 			return (*threadList)[0].tid;  // Any thread should do. Just return the first one.
-		}
-		return std::nullopt;
-	}
-
-	static std::optional<std::pair<uint32_t, uint32_t>> GetProcessThreadIds()
-	{
-		if (const auto procId = GetProcessId())
-		{
-			if (const auto threadId = GetThreadId(*procId))
-				return std::make_optional(std::make_pair(*procId, *threadId));
 		}
 		return std::nullopt;
 	}
@@ -202,12 +205,62 @@ private:
 	}
 };
 
+
+struct InjectedClient
+{
+	gan::AutoWinHandle handle;
+	uint32_t pid;
+};
+
+void RemoveTerminatedClients(std::vector<InjectedClient>& clients)
+{
+	auto filtered = clients
+		| std::views::filter([](const auto& client) { return IsProcessStillAlive(*client.handle).value_or(false); })
+		| std::views::as_rvalue
+		| std::ranges::to<std::vector>();
+	std::swap(filtered, clients);
+}
+
+void LaussMainLoop()
+{
+	std::vector<InjectedClient> activeClients;
+
+	while (true)
+	{
+		constexpr gan::WinDword k_sleepDurationMs = 1000;
+		::Sleep(k_sleepDurationMs);
+
+		RemoveTerminatedClients(activeClients);
+
+		for (const auto& proc : LineProcessHelper::GetTargetProcessList())
+		{
+			if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
+				continue;
+
+			if (auto injectResult = LineProcessHelper::InjectPayload(proc.pid))
+			{
+				activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
+				Printf("Payload injected into pid=%u\n", proc.pid);
+			}
+			else
+			{
+				Printf(
+					"Failed to inject payload into pid=%u, error=%s\n",
+					proc.pid,
+					LineProcessHelper::k_ResultStrings[std::to_underlying(injectResult.error())].data()
+				);
+			}
+		}
+	}
+}
+
 }  // unnamed namespace
 
 
+// TODO: gan::WinDword WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int)
 int main()
 {
-	const auto launchResult = LineProcessHelper::InjectPayload();
-	Printf("Result: %s\n", LineProcessHelper::k_ResultStrings[std::to_underlying(launchResult)].data());
+	LaussMainLoop();
+
 	return NO_ERROR;
 }
