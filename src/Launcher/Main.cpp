@@ -35,6 +35,7 @@
 #include <chrono>
 #include <optional>
 #include <ranges>
+#include <thread>
 #include <utility>
 
 
@@ -187,7 +188,7 @@ private:
 
 	static bool WaitForPayload(gan::WinHandle process, std::chrono::seconds timeout)
 	{
-		constexpr static std::chrono::milliseconds k_checkInterval{ 100ms };
+		constexpr static auto k_checkInterval = 100ms;
 
 		for (std::chrono::milliseconds counter{ };
 			counter < timeout;
@@ -206,53 +207,58 @@ private:
 };
 
 
-struct InjectedClient
+class Lauss
 {
-	gan::AutoWinHandle handle;
-	uint32_t pid;
-};
-
-void RemoveTerminatedClients(std::vector<InjectedClient>& clients)
-{
-	auto filtered = clients
-		| std::views::filter([](const auto& client) { return IsProcessStillAlive(*client.handle).value_or(false); })
-		| std::views::as_rvalue
-		| std::ranges::to<std::vector>();
-	std::swap(filtered, clients);
-}
-
-[[noreturn]] void LaussMainLoop()
-{
-	std::vector<InjectedClient> activeClients;
-
-	while (true)
+public:
+	[[noreturn]] static void RunMainLoop()
 	{
-		constexpr gan::WinDword k_sleepDurationMs = 1000;
-		::Sleep(k_sleepDurationMs);
+		std::vector<InjectedClient> activeClients;
 
-		RemoveTerminatedClients(activeClients);
-
-		for (const auto& proc : LineProcessHelper::GetTargetProcessList())
+		while (true)
 		{
-			if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
-				continue;
+			constexpr auto k_sleepDuration = 1s;
+			std::this_thread::sleep_for(k_sleepDuration);
 
-			if (auto injectResult = LineProcessHelper::InjectPayload(proc.pid))
+			RemoveTerminatedClients(activeClients);
+
+			for (const auto& proc : LineProcessHelper::GetTargetProcessList())
 			{
-				activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
-				Printf("Payload injected into pid=%u\n", proc.pid);
-			}
-			else
-			{
-				Printf(
-					"Failed to inject payload into pid=%u, error=%s\n",
-					proc.pid,
-					LineProcessHelper::k_ResultStrings[std::to_underlying(injectResult.error())].data()
-				);
+				if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
+					continue;
+
+				if (auto injectResult = LineProcessHelper::InjectPayload(proc.pid))
+				{
+					activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
+					Printf("Payload injected into pid=%u\n", proc.pid);
+				}
+				else
+				{
+					Printf(
+						"Failed to inject payload into pid=%u, error=%s\n",
+						proc.pid,
+						LineProcessHelper::k_ResultStrings[std::to_underlying(injectResult.error())].data()
+					);
+				}
 			}
 		}
 	}
-}
+
+private:
+	struct InjectedClient
+	{
+		gan::AutoWinHandle handle;
+		uint32_t pid;
+	};
+
+	static void RemoveTerminatedClients(std::vector<InjectedClient>& clients)
+	{
+		auto filtered = clients
+			| std::views::filter([](const auto& client) { return IsProcessStillAlive(*client.handle).value_or(false); })
+			| std::views::as_rvalue
+			| std::ranges::to<std::vector>();
+		std::swap(filtered, clients);
+	}
+};
 
 }  // unnamed namespace
 
@@ -264,5 +270,5 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 		::AllocConsole();
 	}
 
-	LaussMainLoop();
+	Lauss::RunMainLoop();
 }
