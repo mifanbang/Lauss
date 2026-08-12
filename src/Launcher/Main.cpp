@@ -221,7 +221,7 @@ void RemoveTerminatedClients(std::vector<InjectedClient>& clients)
 	std::swap(filtered, clients);
 }
 
-void LaussMainLoop()
+[[noreturn]] void LaussMainLoop()
 {
 	std::vector<InjectedClient> activeClients;
 
@@ -257,10 +257,12 @@ void LaussMainLoop()
 }  // unnamed namespace
 
 
-// TODO: gan::WinDword WINAPI wWinMain(HINSTANCE, HINSTANCE, wchar_t*, int)
-int main()
+int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
-	LaussMainLoop();
+	if constexpr (UseDebugConsole())
+	{
+		::AllocConsole();
+	}
 
-	return NO_ERROR;
+	LaussMainLoop();
 }
