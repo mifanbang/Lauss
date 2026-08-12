@@ -72,7 +72,6 @@ class LineProcessHelper
 public:
 	enum class InjectionError
 	{
-		AlreadyActive,
 		ProcessNotFound,
 		HookError,
 		SystemCallError,
@@ -81,7 +80,6 @@ public:
 	};
 	constexpr static std::array<std::string_view, std::to_underlying(InjectionError::Count)> k_ResultStrings
 	{
-		"AlreadyActive"sv,
 		"ProcessNotFound"sv,
 		"HookError"sv,
 		"SystemCallError"sv
@@ -102,7 +100,7 @@ public:
 			if (!payloadFound)
 				return std::unexpected{ InjectionError::ProcessNotFound };  // Error during module enumeration
 			else if (payloadFound.value())
-				return std::unexpected{ InjectionError::AlreadyActive };
+				return hProc;
 		}
 
 		const auto tid = GetTargetThreadId(pid);
@@ -236,7 +234,7 @@ public:
 				if (auto injectResult = LineProcessHelper::InjectPayload(proc.pid))
 				{
 					activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
-					Printf("Payload injected into pid=%u\n", proc.pid);
+					Printf("Payload has been injected in pid=%u\n", proc.pid);
 				}
 				else
 				{
