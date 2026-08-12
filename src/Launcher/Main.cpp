@@ -216,13 +216,20 @@ public:
 
 		while (true)
 		{
-			constexpr auto k_sleepDuration = 1s;
-			std::this_thread::sleep_for(k_sleepDuration);
+			{
+				constexpr auto k_sleepDurationHiFreq = 1s;
+				constexpr auto k_sleepDurationLoFreq = 10s;
+				std::this_thread::sleep_for(
+					activeClients.empty() ? k_sleepDurationHiFreq : k_sleepDurationLoFreq
+				);
+			}
 
+			// Update watchlist
 			RemoveTerminatedClients(activeClients);
 
 			for (const auto& proc : LineProcessHelper::GetTargetProcessList())
 			{
+				// Exclude those processes already in watchlist
 				if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
 					continue;
 
