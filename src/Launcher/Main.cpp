@@ -67,72 +67,23 @@ std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
 }
 
 
-class LineProcessHelper
+class LineHelper
 {
 public:
-	enum class InjectionError
-	{
-		ProcessNotFound,
-		HookError,
-		SystemCallError,
-
-		Count
-	};
-	constexpr static std::array<std::string_view, std::to_underlying(InjectionError::Count)> k_ResultStrings
-	{
-		"ProcessNotFound"sv,
-		"HookError"sv,
-		"SystemCallError"sv
-	};
-
-	static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid)
-	{
-		auto hProc = OpenTargetProcess(pid);
-		assert(hProc);
-		if (!hProc)
-		{
-			// Either process not accessible or terminated
-			return std::unexpected{ InjectionError::ProcessNotFound };
-		}
-		else
-		{
-			const auto payloadFound = PayloadExistsIn(*hProc);
-			if (!payloadFound)
-				return std::unexpected{ InjectionError::ProcessNotFound };  // Error during module enumeration
-			else if (payloadFound.value())
-				return hProc;
-		}
-
-		const auto tid = GetTargetThreadId(pid);
-		if (!tid)
-			return std::unexpected{ InjectionError::ProcessNotFound };  // Likely process terminated
-		auto hThread = OpenTargetThread(*tid);
-		assert(hThread);
-		if (!hThread)
-			return std::unexpected{ InjectionError::SystemCallError };  // Note: could also be process terminated
-
-		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
-		const auto hMod = ::LoadLibraryW(path.c_str());
-		assert(hMod);
-		if (hMod == nullptr)
-			return std::unexpected{ InjectionError::HookError };
-		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
-		assert(hHookProc);
-		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
-		if (hHook == nullptr)
-			return std::unexpected{ InjectionError::HookError };
-
-		if (!WaitForPayload(*hProc, 5s))
-			return std::unexpected{ InjectionError::SystemCallError };
-
-		::UnhookWindowsHookEx(hHook);
-		return hProc;
-	}
-
 	static auto GetTargetProcessList()
 	{
 		return gan::ProcessEnumerator{}().value_or({ })
 			| std::views::filter([](const auto& proc) { return ::StrStrIW(proc.imageName.c_str(), LineImageName()); });
+	}
+
+	static std::optional<uint32_t> GetTargetThreadId(uint32_t pid)
+	{
+		if (const auto threadList = gan::ThreadEnumerator{}(pid);
+			threadList && threadList->size() > 0)
+		{
+			return (*threadList)[0].tid;  // Any thread should do. Just return the first one.
+		}
+		return std::nullopt;
 	}
 
 	static gan::AutoWinHandle OpenTargetProcess(uint32_t pid)
@@ -158,18 +109,72 @@ public:
 			| SYNCHRONIZE;
 		return gan::AutoWinHandle{ ::OpenThread(k_threadAccessFlags, k_notInheritable, tid) };
 	}
+};
 
-private:
-	static std::optional<uint32_t> GetTargetThreadId(uint32_t pid)
+
+class PayloadHelper
+{
+public:
+	enum class InjectionError
 	{
-		if (const auto threadList = gan::ThreadEnumerator{}(pid);
-			threadList && threadList->size() > 0)
+		ProcessNotFound,
+		HookError,
+		SystemCallError,
+		_Count
+	};
+	constexpr static std::array<std::string_view, std::to_underlying(InjectionError::_Count)> k_ResultStrings
+	{
+		"ProcessNotFound"sv,
+		"HookError"sv,
+		"SystemCallError"sv
+	};
+
+	static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid)
+	{
+		auto hProc = LineHelper::OpenTargetProcess(pid);
+		assert(hProc);
+		if (!hProc)
 		{
-			return (*threadList)[0].tid;  // Any thread should do. Just return the first one.
+			// Either process not accessible or terminated
+			return std::unexpected{ InjectionError::ProcessNotFound };
 		}
-		return std::nullopt;
+		else
+		{
+			const auto payloadFound = PayloadExistsIn(*hProc);
+			if (!payloadFound)
+				return std::unexpected{ InjectionError::ProcessNotFound };  // Error during module enumeration
+			else if (payloadFound.value())
+				return hProc;
+		}
+
+		const auto tid = LineHelper::GetTargetThreadId(pid);
+		if (!tid)
+			return std::unexpected{ InjectionError::ProcessNotFound };  // Likely process terminated
+		auto hThread = LineHelper::OpenTargetThread(*tid);
+		assert(hThread);
+		if (!hThread)
+			return std::unexpected{ InjectionError::SystemCallError };  // Note: could also be process terminated
+
+		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
+		const auto hMod = ::LoadLibraryW(path.c_str());
+		assert(hMod);
+		if (hMod == nullptr)
+			return std::unexpected{ InjectionError::HookError };
+		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
+		assert(hHookProc);
+		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
+		if (hHook == nullptr)
+			return std::unexpected{ InjectionError::HookError };
+
+		// TODO: detect crash
+		if (!WaitForPayload(*hProc, 5s))
+			return std::unexpected{ InjectionError::SystemCallError };
+
+		::UnhookWindowsHookEx(hHook);
+		return hProc;
 	}
 
+private:
 	static std::optional<bool> PayloadExistsIn(gan::WinHandle process)
 	{
 		if (const auto modList = gan::ModuleEnumerator{}(process))
@@ -208,43 +213,20 @@ private:
 class Lauss
 {
 public:
-	[[noreturn]] static void RunMainLoop()
+	[[noreturn]] void RunMainLoop()
 	{
-		std::vector<InjectedClient> activeClients;
-
 		while (true)
 		{
 			{
 				constexpr auto k_sleepDurationHiFreq = 1s;
 				constexpr auto k_sleepDurationLoFreq = 10s;
 				std::this_thread::sleep_for(
-					activeClients.empty() ? k_sleepDurationHiFreq : k_sleepDurationLoFreq
+					m_activeClients.empty() ? k_sleepDurationHiFreq : k_sleepDurationLoFreq
 				);
 			}
 
-			// Update watchlist
-			RemoveTerminatedClients(activeClients);
-
-			for (const auto& proc : LineProcessHelper::GetTargetProcessList())
-			{
-				// Exclude those processes already in watchlist
-				if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
-					continue;
-
-				if (auto injectResult = LineProcessHelper::InjectPayload(proc.pid))
-				{
-					activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
-					Printf("Payload has been injected in pid=%u\n", proc.pid);
-				}
-				else
-				{
-					Printf(
-						"Failed to inject payload into pid=%u, error=%s\n",
-						proc.pid,
-						LineProcessHelper::k_ResultStrings[std::to_underlying(injectResult.error())].data()
-					);
-				}
-			}
+			RemoveTerminatedClients(m_activeClients);
+			FindAndPatchClients(m_activeClients);
 		}
 	}
 
@@ -255,14 +237,41 @@ private:
 		uint32_t pid;
 	};
 
-	static void RemoveTerminatedClients(std::vector<InjectedClient>& clients)
+	static void RemoveTerminatedClients(std::vector<InjectedClient>& activeClients)
 	{
-		auto filtered = clients
+		auto filtered = activeClients
 			| std::views::filter([](const auto& client) { return IsProcessStillAlive(*client.handle).value_or(false); })
 			| std::views::as_rvalue
 			| std::ranges::to<std::vector>();
-		std::swap(filtered, clients);
+		std::swap(filtered, activeClients);
 	}
+
+	static void FindAndPatchClients(std::vector<InjectedClient>& activeClients)
+	{
+		for (const auto& proc : LineHelper::GetTargetProcessList())
+		{
+			// Exclude those processes already in watchlist
+			if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
+				continue;
+
+			if (auto injectResult = PayloadHelper::InjectPayload(proc.pid))
+			{
+				activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
+				Printf("Payload has been injected in pid=%u\n", proc.pid);
+			}
+			else
+			{
+				// TODO: handle the case of client crashes after injecting payload
+				Printf(
+					"Failed to inject payload into pid=%u, error=%s\n",
+					proc.pid,
+					PayloadHelper::k_ResultStrings[std::to_underlying(injectResult.error())].data()
+				);
+			}
+		}
+	}
+
+	std::vector<InjectedClient> m_activeClients;
 };
 
 }  // unnamed namespace
@@ -275,5 +284,6 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 		::AllocConsole();
 	}
 
-	Lauss::RunMainLoop();
+	Lauss app;
+	app.RunMainLoop();
 }
