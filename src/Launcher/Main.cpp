@@ -217,16 +217,17 @@ public:
 	{
 		while (true)
 		{
-			{
-				constexpr auto k_sleepDurationHiFreq = 1s;
-				constexpr auto k_sleepDurationLoFreq = 10s;
-				std::this_thread::sleep_for(
-					m_activeClients.empty() ? k_sleepDurationHiFreq : k_sleepDurationLoFreq
-				);
-			}
+			SleepAdaptively(m_activeClients);
 
 			RemoveTerminatedClients(m_activeClients);
-			FindAndPatchClients(m_activeClients);
+
+			auto unpatched =
+				LineHelper::GetTargetProcessList()
+				| std::views::filter([&activeClients = this->m_activeClients](const auto& proc) {
+					return std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) == activeClients.end();
+				});
+			auto newlyPatched = PatchClients(unpatched);
+			m_activeClients.append_range(newlyPatched | std::views::as_rvalue);
 		}
 	}
 
@@ -237,6 +238,15 @@ private:
 		uint32_t pid;
 	};
 
+	static void SleepAdaptively(const std::vector<InjectedClient>& activeClients)
+	{
+		constexpr auto k_sleepDurationHiFreq = 1s;
+		constexpr auto k_sleepDurationLoFreq = 10s;
+		std::this_thread::sleep_for(
+			activeClients.empty() ? k_sleepDurationHiFreq : k_sleepDurationLoFreq
+		);
+	}
+
 	static void RemoveTerminatedClients(std::vector<InjectedClient>& activeClients)
 	{
 		auto filtered = activeClients
@@ -246,17 +256,15 @@ private:
 		std::swap(filtered, activeClients);
 	}
 
-	static void FindAndPatchClients(std::vector<InjectedClient>& activeClients)
+	static std::vector<InjectedClient> PatchClients(auto&& candidates)
 	{
-		for (const auto& proc : LineHelper::GetTargetProcessList())
-		{
-			// Exclude those processes already in watchlist
-			if (std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) != activeClients.end())
-				continue;
+		std::vector<InjectedClient> patched;
 
+		for (const auto& proc : candidates)
+		{
 			if (auto injectResult = PayloadHelper::InjectPayload(proc.pid))
 			{
-				activeClients.emplace_back(std::move(injectResult.value()), proc.pid);
+				patched.emplace_back(std::move(injectResult.value()), proc.pid);
 				Printf("Payload has been injected in pid=%u\n", proc.pid);
 			}
 			else
@@ -269,6 +277,7 @@ private:
 				);
 			}
 		}
+		return patched;
 	}
 
 	std::vector<InjectedClient> m_activeClients;
