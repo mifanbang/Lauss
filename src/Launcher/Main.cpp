@@ -166,11 +166,9 @@ public:
 		if (hHook == nullptr)
 			return std::unexpected{ InjectionError::HookError };
 
-		// TODO: detect crash
-		if (!WaitForPayload(*hProc, 5s))
-			return std::unexpected{ InjectionError::SystemCallError };
-
+		WaitForPayload(*hProc, 5s);
 		::UnhookWindowsHookEx(hHook);
+
 		return hProc;
 	}
 
@@ -213,22 +211,19 @@ private:
 class Lauss
 {
 public:
-	[[noreturn]] void RunMainLoop()
+	void RunMainLoop()
 	{
-		while (true)
+		constexpr size_t k_maxTolerableCrashes = 2;
+
+		while (m_crashCounter < k_maxTolerableCrashes)
 		{
 			SleepAdaptively(m_activeClients);
 
 			RemoveTerminatedClients(m_activeClients);
-
-			auto unpatched =
-				LineHelper::GetTargetProcessList()
-				| std::views::filter([&activeClients = this->m_activeClients](const auto& proc) {
-					return std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) == activeClients.end();
-				});
-			auto newlyPatched = PatchClients(unpatched);
-			m_activeClients.append_range(newlyPatched | std::views::as_rvalue);
+			const auto injectionSummary = PatchCandidateClients(m_activeClients);
+			m_crashCounter = UpdatedCrashCounter(m_crashCounter, injectionSummary);
 		}
+		Printf("Exiting due to consecutive %zu crashes detected.\n", k_maxTolerableCrashes);
 	}
 
 private:
@@ -256,20 +251,51 @@ private:
 		std::swap(filtered, activeClients);
 	}
 
-	static std::vector<InjectedClient> PatchClients(auto&& candidates)
+	struct InjectionSummary
 	{
-		std::vector<InjectedClient> patched;
+		size_t total;
+		size_t success;
+	};
+	static InjectionSummary PatchCandidateClients(std::vector<InjectedClient>& activeClients)
+	{
+		auto injectionTarget =
+			LineHelper::GetTargetProcessList()
+			| std::views::filter([&activeClients](const auto& proc) {
+				return std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) == activeClients.end();
+			});
+
+		auto newlyInjected = InjectClients(injectionTarget);
+		const auto numInjected = newlyInjected.size();
+		if (numInjected == 0)
+			return { };
+
+		// Detect potential crash due to payload injection
+		{
+			// Give newly injected clients a little bit of time to potentially crash
+			constexpr auto k_sleepDurationAfterInject = 3s;
+			std::this_thread::sleep_for(k_sleepDurationAfterInject);
+
+			RemoveTerminatedClients(newlyInjected);
+		}
+		const auto numStillAlive = newlyInjected.size();
+
+		activeClients.append_range(newlyInjected | std::views::as_rvalue);
+		return { .total=numInjected, .success=numStillAlive };
+	}
+
+	static std::vector<InjectedClient> InjectClients(auto&& candidates)
+	{
+		std::vector<InjectedClient> injected;
 
 		for (const auto& proc : candidates)
 		{
 			if (auto injectResult = PayloadHelper::InjectPayload(proc.pid))
 			{
-				patched.emplace_back(std::move(injectResult.value()), proc.pid);
-				Printf("Payload has been injected in pid=%u\n", proc.pid);
+				injected.emplace_back(std::move(injectResult.value()), proc.pid);
+				Printf("Payload has been injected into pid=%u\n", proc.pid);
 			}
 			else
 			{
-				// TODO: handle the case of client crashes after injecting payload
 				Printf(
 					"Failed to inject payload into pid=%u, error=%s\n",
 					proc.pid,
@@ -277,10 +303,26 @@ private:
 				);
 			}
 		}
-		return patched;
+		return injected;
 	}
 
-	std::vector<InjectedClient> m_activeClients;
+	static size_t UpdatedCrashCounter(size_t crashCounter, InjectionSummary injection)
+	{
+		if (injection.success > 0)  // Any successful injection resets counter
+		{
+			crashCounter = 0;
+			Printf("Crash counter reset.\n");
+		}
+		else if (injection.total > 0)  // `total` must now be #crashes
+		{
+			crashCounter += injection.total;
+			Printf("%zu crash(es) detected. Now counter=%zu\n", injection.total, crashCounter);
+		}
+		return crashCounter;
+	}
+
+	std::vector<InjectedClient> m_activeClients{ };
+	size_t m_crashCounter{ };
 };
 
 }  // unnamed namespace
@@ -293,6 +335,6 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 		::AllocConsole();
 	}
 
-	Lauss app;
-	app.RunMainLoop();
+	Lauss{ }.RunMainLoop();
+	return NO_ERROR;
 }
