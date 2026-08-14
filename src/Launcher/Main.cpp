@@ -16,9 +16,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "LaussDef.h"
-
 #include "Debug.h"
+#include "LaussDef.h"
+#include "Utils.h"
 
 #include <DllInjector.h>
 #include <DllLookup.h>
@@ -46,31 +46,6 @@ using namespace std::literals;
 
 namespace
 {
-
-[[nodiscard]] std::wstring GetExeDirectory()
-{
-	std::wstring cwd;
-	if (int argc;
-		wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc))
-	{
-		assert(argc >= 1);
-		if (argc >= 1)
-			cwd = std::filesystem::path{ argv[0] }.parent_path();
-		::LocalFree(argv);
-	}
-	return cwd;
-}
-
-[[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
-{
-	gan::WinDword exitCode;
-	const auto getExitCodeResult = ::GetExitCodeProcess(proc, &exitCode);
-
-	return getExitCodeResult ?
-		std::make_optional(exitCode == STILL_ACTIVE)
-		: std::nullopt;
-}
-
 
 class LineHelper
 {
