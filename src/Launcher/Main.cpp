@@ -21,6 +21,7 @@
 #include "Debug.h"
 
 #include <DllInjector.h>
+#include <DllLookup.h>
 #include <Handle.h>
 #include <ModuleList.h>
 #include <ProcessList.h>
@@ -33,6 +34,7 @@
 #include <array>
 #include <cassert>
 #include <chrono>
+#include <filesystem>
 #include <optional>
 #include <ranges>
 #include <thread>
@@ -45,18 +47,21 @@ using namespace std::literals;
 namespace
 {
 
-std::wstring GetCurrentDirectoryW()
+[[nodiscard]] std::wstring GetExeDirectory()
 {
-	const DWORD lengthNeeded = ::GetCurrentDirectoryW(0, nullptr);
-
-	std::wstring result(static_cast<size_t>(lengthNeeded - 1), L'\\');
-	[[maybe_unused]] const auto lengthWritten = ::GetCurrentDirectoryW(lengthNeeded, result.data());
-	assert(lengthWritten + 1 == lengthNeeded);
-
-	return result;
+	std::wstring cwd;
+	if (int argc;
+		wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc))
+	{
+		assert(argc >= 1);
+		if (argc >= 1)
+			cwd = std::filesystem::path{ argv[0] }.parent_path();
+		::LocalFree(argv);
+	}
+	return cwd;
 }
 
-std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
+[[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
 {
 	gan::WinDword exitCode;
 	const auto getExitCodeResult = ::GetExitCodeProcess(proc, &exitCode);
@@ -70,13 +75,13 @@ std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
 class LineHelper
 {
 public:
-	static auto GetTargetProcessList()
+	[[nodiscard]] static auto GetTargetProcessList()
 	{
 		return gan::ProcessEnumerator{}().value_or({ })
 			| std::views::filter([](const auto& proc) { return ::StrStrIW(proc.imageName.c_str(), LineImageName()); });
 	}
 
-	static std::optional<uint32_t> GetTargetThreadId(uint32_t pid)
+	[[nodiscard]] static std::optional<uint32_t> GetTargetThreadId(uint32_t pid)
 	{
 		if (const auto threadList = gan::ThreadEnumerator{}(pid);
 			threadList && threadList->size() > 0)
@@ -86,7 +91,7 @@ public:
 		return std::nullopt;
 	}
 
-	static gan::AutoWinHandle OpenTargetProcess(uint32_t pid)
+	[[nodiscard]] static gan::AutoWinHandle OpenTargetProcess(uint32_t pid)
 	{
 		constexpr BOOL k_notInheritable = FALSE;
 		constexpr DWORD k_procAccessFlags =
@@ -97,7 +102,7 @@ public:
 		return gan::AutoWinHandle{ ::OpenProcess(k_procAccessFlags, k_notInheritable, pid) };
 	}
 
-	static gan::AutoWinHandle OpenTargetThread(uint32_t tid)
+	[[nodiscard]] static gan::AutoWinHandle OpenTargetThread(uint32_t tid)
 	{
 		constexpr BOOL k_notInheritable = FALSE;
 		constexpr DWORD k_threadAccessFlags =
@@ -115,6 +120,34 @@ public:
 class PayloadHelper
 {
 public:
+	struct LoadedPayload
+	{
+		gan::AutoWinModule mod;
+		const HOOKPROC hookFunc;
+	};
+
+	[[nodiscard]] static std::optional<LoadedPayload> LoadPayload()
+	{
+		const auto currDir = GetExeDirectory();
+		assert(currDir.size() > 0);
+		if (currDir.size() == 0)
+			return std::nullopt;
+
+		const auto pathPayload = currDir + L"\\" + PayloadName();
+		gan::AutoWinModule hMod{ ::LoadLibraryW(pathPayload.c_str()) };
+		assert(hMod);
+		if (!hMod)
+			return std::nullopt;
+
+		constexpr const char* k_hookFuncName = "Dummy";
+		const auto hookFunc = gan::DllLookup::Get<HOOKPROC>(pathPayload, k_hookFuncName);
+		assert(hookFunc);
+		if (hookFunc == nullptr)
+			return std::nullopt;
+
+		return std::make_optional<LoadedPayload>(std::move(hMod), hookFunc);
+	}
+
 	enum class InjectionError
 	{
 		ProcessNotFound,
@@ -128,9 +161,13 @@ public:
 		"HookError"sv,
 		"SystemCallError"sv
 	};
-
-	static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid)
+	[[nodiscard]] static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid, const LoadedPayload& payload)
 	{
+		assert(payload.mod);
+		assert(payload.hookFunc);
+		if (payload.mod == nullptr || payload.hookFunc == nullptr)
+			return std::unexpected{ InjectionError::HookError };
+
 		auto hProc = LineHelper::OpenTargetProcess(pid);
 		assert(hProc);
 		if (!hProc)
@@ -155,14 +192,7 @@ public:
 		if (!hThread)
 			return std::unexpected{ InjectionError::SystemCallError };  // Note: could also be process terminated
 
-		const auto path = GetCurrentDirectoryW() + L"\\" + PayloadName();
-		const auto hMod = ::LoadLibraryW(path.c_str());
-		assert(hMod);
-		if (hMod == nullptr)
-			return std::unexpected{ InjectionError::HookError };
-		const auto hHookProc = reinterpret_cast<HOOKPROC>(::GetProcAddress(hMod, "Dummy"));
-		assert(hHookProc);
-		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, hHookProc, hMod, ::GetThreadId(*hThread));
+		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, payload.hookFunc, *payload.mod, ::GetThreadId(*hThread));
 		if (hHook == nullptr)
 			return std::unexpected{ InjectionError::HookError };
 
@@ -173,7 +203,7 @@ public:
 	}
 
 private:
-	static std::optional<bool> PayloadExistsIn(gan::WinHandle process)
+	[[nodiscard]] static std::optional<bool> PayloadExistsIn(gan::WinHandle process)
 	{
 		if (const auto modList = gan::ModuleEnumerator{}(process))
 		{
@@ -215,12 +245,19 @@ public:
 	{
 		constexpr size_t k_maxTolerableCrashes = 2;
 
+		auto payload = PayloadHelper::LoadPayload();
+		if (!payload)
+		{
+			Printf("Exiting due to errors when loading %S.\n", PayloadName());
+			return;
+		}
+
 		while (m_crashCounter < k_maxTolerableCrashes)
 		{
 			SleepAdaptively(m_activeClients);
 
 			RemoveTerminatedClients(m_activeClients);
-			const auto injectionSummary = PatchCandidateClients(m_activeClients);
+			const auto injectionSummary = PatchCandidateClients(payload.value(), m_activeClients);
 			m_crashCounter = UpdatedCrashCounter(m_crashCounter, injectionSummary);
 		}
 		Printf("Exiting due to consecutive %zu crashes detected.\n", k_maxTolerableCrashes);
@@ -256,7 +293,7 @@ private:
 		size_t total;
 		size_t success;
 	};
-	static InjectionSummary PatchCandidateClients(std::vector<InjectedClient>& activeClients)
+	[[nodiscard]] static InjectionSummary PatchCandidateClients(const PayloadHelper::LoadedPayload& payload, std::vector<InjectedClient>& activeClients)
 	{
 		auto injectionTarget =
 			LineHelper::GetTargetProcessList()
@@ -264,7 +301,7 @@ private:
 				return std::ranges::find(activeClients, proc.pid, &InjectedClient::pid) == activeClients.end();
 			});
 
-		auto newlyInjected = InjectClients(injectionTarget);
+		auto newlyInjected = InjectClients(payload, injectionTarget);
 		const auto numInjected = newlyInjected.size();
 		if (numInjected == 0)
 			return { };
@@ -283,13 +320,13 @@ private:
 		return { .total=numInjected, .success=numStillAlive };
 	}
 
-	static std::vector<InjectedClient> InjectClients(auto&& candidates)
+	[[nodiscard]] static std::vector<InjectedClient> InjectClients(const PayloadHelper::LoadedPayload& payload, auto&& candidates)
 	{
 		std::vector<InjectedClient> injected;
 
 		for (const auto& proc : candidates)
 		{
-			if (auto injectResult = PayloadHelper::InjectPayload(proc.pid))
+			if (auto injectResult = PayloadHelper::InjectPayload(proc.pid, payload))
 			{
 				injected.emplace_back(std::move(injectResult.value()), proc.pid);
 				Printf("Payload has been injected into pid=%u\n", proc.pid);
@@ -306,7 +343,7 @@ private:
 		return injected;
 	}
 
-	static size_t UpdatedCrashCounter(size_t crashCounter, InjectionSummary injection)
+	[[nodiscard]] static size_t UpdatedCrashCounter(size_t crashCounter, InjectionSummary injection)
 	{
 		if (injection.success > 0)  // Any successful injection resets counter
 		{
