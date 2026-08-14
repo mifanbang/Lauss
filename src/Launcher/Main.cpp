@@ -150,47 +150,49 @@ public:
 
 	enum class InjectionError
 	{
-		ProcessNotFound,
+		InvalidArgument,
+		ProcessInaccessible,
+		ThreadInaccessible,
 		HookError,
-		SystemCallError,
 		_Count
 	};
 	constexpr static std::array<std::string_view, std::to_underlying(InjectionError::_Count)> k_ResultStrings
 	{
-		"ProcessNotFound"sv,
-		"HookError"sv,
-		"SystemCallError"sv
+		"InvalidArgument"sv,
+		"ProcessInaccessible"sv,
+		"ThreadInaccessible"sv,
+		"HookError"sv
 	};
 	[[nodiscard]] static std::expected<gan::AutoWinHandle, InjectionError> InjectPayload(uint32_t pid, const LoadedPayload& payload)
 	{
 		assert(payload.mod);
 		assert(payload.hookFunc);
 		if (payload.mod == nullptr || payload.hookFunc == nullptr)
-			return std::unexpected{ InjectionError::HookError };
+			return std::unexpected{ InjectionError::InvalidArgument };
 
 		auto hProc = LineHelper::OpenTargetProcess(pid);
 		assert(hProc);
 		if (!hProc)
 		{
 			// Either process not accessible or terminated
-			return std::unexpected{ InjectionError::ProcessNotFound };
+			return std::unexpected{ InjectionError::ProcessInaccessible };
 		}
 		else
 		{
 			const auto payloadFound = PayloadExistsIn(*hProc);
 			if (!payloadFound)
-				return std::unexpected{ InjectionError::ProcessNotFound };  // Error during module enumeration
+				return std::unexpected{ InjectionError::ProcessInaccessible };  // Error during module enumeration
 			else if (payloadFound.value())
 				return hProc;
 		}
 
 		const auto tid = LineHelper::GetTargetThreadId(pid);
 		if (!tid)
-			return std::unexpected{ InjectionError::ProcessNotFound };  // Likely process terminated
+			return std::unexpected{ InjectionError::ThreadInaccessible };  // Likely process terminated
 		auto hThread = LineHelper::OpenTargetThread(*tid);
 		assert(hThread);
 		if (!hThread)
-			return std::unexpected{ InjectionError::SystemCallError };  // Note: could also be process terminated
+			return std::unexpected{ InjectionError::ThreadInaccessible };  // Note: could also be process terminated
 
 		const auto hHook = ::SetWindowsHookExW(WH_GETMESSAGE, payload.hookFunc, *payload.mod, ::GetThreadId(*hThread));
 		if (hHook == nullptr)
