@@ -21,6 +21,7 @@
 #include "QtHook.h"
 #include "QtInterface.h"
 #include "QtUtils.h"
+#include "Utils.h"
 
 #include <Hook.h>
 
@@ -34,7 +35,6 @@ using namespace std::literals;
 
 namespace
 {
-
 
 enum class PayloadResult : DWORD
 {
@@ -82,7 +82,6 @@ PayloadResult InitializePayload()
 	return PayloadResult::Success;
 }
 
-
 [[maybe_unused]] void WidgetSpyThread()
 {
 	constexpr const uint32_t k_sleepDurationMs = 20;  // 50 fps
@@ -124,7 +123,6 @@ PayloadResult InitializePayload()
 	}
 }
 
-
 bool OnProcessAttached()
 {
 	if constexpr (UseDebugConsole())
@@ -161,7 +159,6 @@ void OnProcessDetached()
 		::FreeConsole();
 	}
 }
-
 
 }  // namespace
 

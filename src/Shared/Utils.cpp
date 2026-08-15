@@ -25,7 +25,21 @@
 #include <cassert>
 #include <filesystem>
 #include <string>
+#include <string_view>
 
+
+void PrintConsole(std::string_view msg)
+{
+	DWORD written;
+	constexpr void* k_unused = nullptr;
+	::WriteConsoleA(
+		::GetStdHandle(STD_OUTPUT_HANDLE),
+		msg.data(),
+		static_cast<gan::WinDword>(msg.size()),
+		&written,
+		k_unused
+	);
+}
 
 std::wstring GetExeDirectory()
 {

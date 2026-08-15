@@ -18,10 +18,28 @@
 
 #pragma once
 
+#include "Debug.h"
 
 #include <Types.h>
 
+#include <cstdio>
+
 #include <string>
+#include <string_view>
+
+
+void PrintConsole(std::string_view msg);
+
+template <class... Args>
+void Printf([[maybe_unused]] Args... args)
+{
+	if constexpr (UseDebugConsole())
+	{
+		char buffer[1024];
+		sprintf_s(buffer, sizeof(buffer), args...);
+		PrintConsole({ buffer });
+	}
+}
 
 
 [[nodiscard]] std::wstring GetExeDirectory();

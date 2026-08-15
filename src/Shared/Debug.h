@@ -18,10 +18,6 @@
 
 #pragma once
 
-#include <cstdio>
-
-#include <windows.h>
-
 
 consteval bool IsDebugBuild()
 {
@@ -32,24 +28,7 @@ consteval bool IsDebugBuild()
 #endif  // _DEBUG
 }
 
-
 consteval bool UseDebugConsole()
 {
 	return IsDebugBuild();
 }
-
-
-template <class... Args>
-void Printf([[maybe_unused]] Args... args)
-{
-	if constexpr (UseDebugConsole())
-	{
-		char buffer[1024];
-		sprintf_s(buffer, sizeof(buffer), args...);
-
-		DWORD written;
-		constexpr void* k_unused = nullptr;
-		::WriteConsoleA(::GetStdHandle(STD_OUTPUT_HANDLE), buffer, ::lstrlenA(buffer), &written, k_unused);
-	}
-}
-

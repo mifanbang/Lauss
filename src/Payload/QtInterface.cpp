@@ -18,7 +18,7 @@
 
 #include "QtInterface.h"
 
-#include "Debug.h"
+#include "Utils.h"
 
 #include <DllLookup.h>
 

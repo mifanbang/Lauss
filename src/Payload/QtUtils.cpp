@@ -18,10 +18,10 @@
 
 #include "QtUtils.h"
 
-#include "Debug.h"
 #include "LaussDef.h"
 #include "QtHook.h"
 #include "QtInterface.h"
+#include "Utils.h"
 
 #include <windows.h>
 
@@ -33,13 +33,11 @@
 #include <utility>
 
 
-
 const char* GetQtClassName(const QObject& object)
 {
 	const auto metaObj = object.metaObject();
 	return Q(QMetaObject::className)(metaObj);
 }
-
 
 std::vector<IndexedMethod> GetMethods(const QObject& object)
 {
@@ -54,7 +52,6 @@ std::vector<IndexedMethod> GetMethods(const QObject& object)
 		| std::ranges::to<std::vector>();
 	return methodList;
 }
-
 
 std::optional<std::vector<Connection*>> GetConnections(QObject& object, const char* signal)
 {
@@ -83,7 +80,6 @@ std::optional<std::vector<Connection*>> GetConnections(QObject& object, const ch
 	}
 	return connections;
 }
-
 
 bool PrintConnectionsToSignal(QObject& object, const char* signal)
 {
@@ -139,7 +135,6 @@ bool PrintConnectionsToSignal(QObject& object, const char* signal)
 	return true;
 }
 
-
 void PrintMethodsWithSignalConnections(QObject& object)
 {
 	for (const auto& [idx, metaMethod] : GetMethods(object))
@@ -159,7 +154,6 @@ void PrintMethodsWithSignalConnections(QObject& object)
 	}
 }
 
-
 std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget)
 {
 	std::vector<QWidget*> parents;
@@ -177,7 +171,6 @@ std::vector<QWidget*> FindOwningWidgets(QWidget& bottomWidget)
 	}
 	return parents;
 }
-
 
 std::vector<QWidget*> FindBanners()
 {
@@ -215,7 +208,6 @@ std::vector<QWidget*> FindBanners()
 
 	return adWidgets;
 }
-
 
 bool HideBanner(QWidget& bannerWidget)
 {
