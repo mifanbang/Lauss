@@ -4,8 +4,10 @@
     <ClInclude Include="..\src\Shared\Debug.h" />
     <ClInclude Include="..\src\Shared\LaussDef.h" />
     <ClInclude Include="..\src\Shared\Utils.h" />
+    <ClInclude Include="..\src\Shared\Registry.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\Shared\Utils.cpp" />
+    <ClCompile Include="..\src\Shared\Registry.cpp" />
   </ItemGroup>
 </Project>
