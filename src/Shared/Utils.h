@@ -41,7 +41,6 @@ void Printf([[maybe_unused]] Args... args)
 	}
 }
 
-
-[[nodiscard]] std::wstring GetExeDirectory();
+[[nodiscard]] std::wstring GetExeDirectory();  // Inclusive of the trailing `\\`
 
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);

@@ -19,6 +19,10 @@
 #pragma once
 
 
+consteval auto LauncherName()
+{
+	return L"Lauss.exe";
+}
 
 consteval auto PayloadName()
 {
