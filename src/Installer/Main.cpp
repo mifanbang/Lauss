@@ -17,6 +17,7 @@
  */
 
 #include "LaussDef.h"
+#include "Registry.h"
 #include "Resource.h"
 
 #include <Handle.h>
@@ -70,6 +71,11 @@ struct InstallContext
 	return sysResult == NO_ERROR
 		|| sysResult == ERROR_FILE_EXISTS
 		|| sysResult == ERROR_ALREADY_EXISTS;
+}
+
+[[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str)
+{
+	return std::wstring{ L"\"" }.append(str).append(1, L'"');
 }
 
 
@@ -219,6 +225,8 @@ public:
 			return;
 		}
 
+		[[maybe_unused]] const auto installRegStartUp = WriteStartUpRegistry(installCtx.value());
+
 		const auto launchResult = RunLauncher(installCtx.value());
 		assert(launchResult);
 		if (!launchResult)
@@ -228,6 +236,23 @@ public:
 		}
 	}
 private:
+	[[nodiscard]] static bool WriteStartUpRegistry(const InstallContext& ctx)
+	{
+		constexpr auto k_startUpKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+
+		RegistryKey key{ k_startUpKey };
+		assert(key);
+		if (!key)
+			return false;
+
+		constexpr auto k_startUpSubkeyName = L"Lauss";
+		const auto quotedPath = AddDoubleQuotes(ctx.pathLauncher);
+		return key.SetValue<RegistryKey::Type::String>(
+			k_startUpSubkeyName,
+			quotedPath.c_str(),
+			(quotedPath.size() + 1) << 1  // Per API doc, terminating '\0' must be included.
+		);
+	}
 
 	[[nodiscard]] static bool RunLauncher(const InstallContext& ctx)
 	{
