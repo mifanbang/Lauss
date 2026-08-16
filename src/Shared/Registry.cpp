@@ -66,3 +66,15 @@ bool RegistryKey::SetValueUnsafe(std::wstring_view name, Type type, const void* 
 	);
 	return setKeyResult == NO_ERROR;
 }
+
+bool RegistryKey::RemoveValue(std::wstring_view name)
+{
+	const auto deleteKeyResult = ::RegDeleteValueW(m_hKey, name.data());
+	return deleteKeyResult == NO_ERROR;
+}
+
+bool RegistryKey::Remove()
+{
+	const auto deleteKeyResult = ::RegDeleteKeyExW(m_hKey, L"", 0, 0);
+	return deleteKeyResult == NO_ERROR;
+}

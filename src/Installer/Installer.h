@@ -18,33 +18,32 @@
 
 #pragma once
 
-#include "Debug.h"
+#include "LaussDef.h"
 
-#include <Types.h>
-
-#include <cstdio>
-
+#include <cassert>
+#include <optional>
 #include <string>
-#include <string_view>
 
 
-[[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str);
-
-void PrintConsole(std::string_view msg);
-
-template <class... Args>
-void Printf([[maybe_unused]] Args... args)
+struct InstallContext
 {
-	if constexpr (UseDebugConsole())
+	const std::wstring installDir;
+	const std::wstring pathUninstaller;
+	const std::wstring pathLauncher;
+	const std::wstring pathPayload;
+
+	// The convention is that all instantiated InstallContext's must have non-empty contents.
+	static std::optional<InstallContext> Make(std::wstring_view installDir)
 	{
-		char buffer[1024];
-		sprintf_s(buffer, sizeof(buffer), args...);
-		PrintConsole({ buffer });
+		assert(installDir.size() > 0);
+		if (installDir.size() == 0)
+			return std::nullopt;
+
+		return std::make_optional<InstallContext>(
+			std::wstring{ installDir },
+			std::wstring{ installDir }.append(UninstallerName()),
+			std::wstring{ installDir }.append(LauncherName()),
+			std::wstring{ installDir }.append(PayloadName())
+		);
 	}
-}
-
-[[nodiscard]] std::vector<std::wstring> GetCmdLineArgs();
-
-[[nodiscard]] std::wstring GetExeDirectory();  // Inclusive of the trailing `\\`
-
-[[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
+};

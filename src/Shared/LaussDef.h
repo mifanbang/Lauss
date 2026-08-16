@@ -19,6 +19,16 @@
 #pragma once
 
 
+constexpr auto VersionStr()
+{
+	return L"0.0";
+}
+
+consteval auto UninstallerName()
+{
+	return L"Uninstaller.exe";
+}
+
 consteval auto LauncherName()
 {
 	return L"Lauss.exe";

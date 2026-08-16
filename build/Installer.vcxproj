@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
     <ClCompile Include="..\src\Installer\Main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -30,6 +31,8 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\src\Installer\Installer.h" />
+    <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
     <ClInclude Include="..\src\Installer\Resource.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

@@ -18,33 +18,27 @@
 
 #pragma once
 
-#include "Debug.h"
-
-#include <Types.h>
-
-#include <cstdio>
-
-#include <string>
-#include <string_view>
+#include "Installer.h"
 
 
-[[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str);
-
-void PrintConsole(std::string_view msg);
-
-template <class... Args>
-void Printf([[maybe_unused]] Args... args)
+class StartUpRegistry
 {
-	if constexpr (UseDebugConsole())
-	{
-		char buffer[1024];
-		sprintf_s(buffer, sizeof(buffer), args...);
-		PrintConsole({ buffer });
-	}
-}
+public:
+	[[nodiscard]] static bool Create(const InstallContext& ctx);
+	[[nodiscard]] static bool Remove();
 
-[[nodiscard]] std::vector<std::wstring> GetCmdLineArgs();
+private:
+	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+	constexpr static auto k_subkeyLauss = L"Lauss";
+};
 
-[[nodiscard]] std::wstring GetExeDirectory();  // Inclusive of the trailing `\\`
 
-[[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
+class UninstallRegistry
+{
+public:
+	[[nodiscard]] static bool Create(const InstallContext& ctx);
+	[[nodiscard]] static bool Remove();
+
+private:
+	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Lauss";
+};

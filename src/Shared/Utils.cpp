@@ -24,9 +24,15 @@
 
 #include <cassert>
 #include <filesystem>
+#include <ranges>
 #include <string>
 #include <string_view>
 
+
+std::wstring AddDoubleQuotes(std::wstring_view str)
+{
+	return std::wstring{ L"\"" }.append(str).append(1, L'"');
+}
 
 void PrintConsole(std::string_view msg)
 {
@@ -41,18 +47,34 @@ void PrintConsole(std::string_view msg)
 	);
 }
 
-std::wstring GetExeDirectory()
+std::vector<std::wstring> GetCmdLineArgs()
 {
-	std::wstring cwd;
+	static std::vector<std::wstring> resultVector;
+	if (resultVector.size() > 0)
+		return resultVector;
+
 	if (int argc;
 		wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc))
 	{
-		assert(argc >= 1);
-		if (argc >= 1)
-			cwd = std::filesystem::path{ argv[0] }.parent_path();
+		resultVector.reserve(argc);
+		for (auto idx : std::views::iota(0, argc))
+			resultVector.emplace_back(argv[idx]);
 		::LocalFree(argv);
 	}
-	return cwd;
+	return resultVector;
+}
+
+std::wstring GetExeDirectory()
+{
+	const auto args = GetCmdLineArgs();
+	assert(args.size() > 0);
+	if (args.empty())
+		return { };
+
+	return std::filesystem::path{ args[0] }
+		.parent_path()
+		.wstring()
+		.append(1, L'\\');
 }
 
 std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)

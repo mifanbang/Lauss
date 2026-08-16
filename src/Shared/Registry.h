@@ -55,6 +55,9 @@ public:
 		return SetValueUnsafe(name, type, value, size);
 	}
 
+	bool RemoveValue(std::wstring_view name);
+	bool Remove();
+
 	operator bool() const
 	{
 		return m_hKey != nullptr;

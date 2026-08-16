@@ -215,7 +215,7 @@ private:
 };
 
 
-class Lauss
+class LaussLauncher
 {
 public:
 	void RunMainLoop()
@@ -349,6 +349,6 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 		::AllocConsole();
 	}
 
-	Lauss{ }.RunMainLoop();
+	LaussLauncher{ }.RunMainLoop();
 	return NO_ERROR;
 }

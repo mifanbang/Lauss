@@ -2,11 +2,14 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="..\src\Installer\Main.cpp" />
+    <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\Installer\Resource.rc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\src\Installer\Resource.h" />
+    <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
+    <ClInclude Include="..\src\Installer\Installer.h" />
   </ItemGroup>
 </Project>

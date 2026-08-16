@@ -16,9 +16,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "Installer.h"
+#include "InstallerRegistry.h"
 #include "LaussDef.h"
 #include "Registry.h"
 #include "Resource.h"
+#include "Utils.h"
 
 #include <Handle.h>
 #include <Types.h>
@@ -34,30 +37,11 @@
 #include <string>
 
 
+using namespace std::literals;
+
+
 namespace
 {
-
-struct InstallContext
-{
-	const std::wstring installDir;
-	const std::wstring pathLauncher;
-	const std::wstring pathPayload;
-
-	// The convention is that all instantiated InstallContext's must have non-empty contents.
-	static std::optional<InstallContext> Make(std::wstring_view installDir)
-	{
-		assert(installDir.size() > 0);
-		if (installDir.size() == 0)
-			return std::nullopt;
-
-		return std::make_optional<InstallContext>(
-			std::wstring{ installDir },
-			std::wstring{ installDir }.append(1, L'\\').append(LauncherName()),
-			std::wstring{ installDir }.append(1, L'\\').append(PayloadName())
-		);
-	}
-};
-
 
 [[nodiscard]] bool CreateFullPath(std::wstring_view path)
 {
@@ -72,12 +56,6 @@ struct InstallContext
 		|| sysResult == ERROR_FILE_EXISTS
 		|| sysResult == ERROR_ALREADY_EXISTS;
 }
-
-[[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str)
-{
-	return std::wstring{ L"\"" }.append(str).append(1, L'"');
-}
-
 
 class InstallHelper
 {
@@ -193,10 +171,10 @@ private:
 };
 
 
-class InstallManager
+class LaussInstaller
 {
 public:
-	static void Exec()
+	static void Install()
 	{
 		const auto installDir = InstallHelper::GetTargetDir();
 		assert(installDir.size() > 0);
@@ -225,7 +203,8 @@ public:
 			return;
 		}
 
-		[[maybe_unused]] const auto installRegStartUp = WriteStartUpRegistry(installCtx.value());
+		[[maybe_unused]] const auto createRegStartUp = StartUpRegistry::Create(installCtx.value());
+		[[maybe_unused]] const auto createRegUninstall = UninstallRegistry::Create(installCtx.value());
 
 		const auto launchResult = RunLauncher(installCtx.value());
 		assert(launchResult);
@@ -235,25 +214,24 @@ public:
 			return;
 		}
 	}
-private:
-	[[nodiscard]] static bool WriteStartUpRegistry(const InstallContext& ctx)
+
+	static void Uninstall()
 	{
-		constexpr auto k_startUpKey = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+		const auto exeDir = GetExeDirectory();
+		assert(exeDir.size() > 0);
+		if (exeDir.size() == 0)
+		{
+			// "Critical error: Failed to obtain current exe's parent path."
+			return;
+		}
 
-		RegistryKey key{ k_startUpKey };
-		assert(key);
-		if (!key)
-			return false;
+		// TODO: Remove files
 
-		constexpr auto k_startUpSubkeyName = L"Lauss";
-		const auto quotedPath = AddDoubleQuotes(ctx.pathLauncher);
-		return key.SetValue<RegistryKey::Type::String>(
-			k_startUpSubkeyName,
-			quotedPath.c_str(),
-			(quotedPath.size() + 1) << 1  // Per API doc, terminating '\0' must be included.
-		);
+		[[maybe_unused]] const auto removeRegStartUp = StartUpRegistry::Remove();
+		[[maybe_unused]] const auto removeRegUninstall = UninstallRegistry::Remove();
 	}
 
+private:
 	[[nodiscard]] static bool RunLauncher(const InstallContext& ctx)
 	{
 		constexpr wchar_t* k_emptyCliArgs = nullptr;
@@ -294,7 +272,17 @@ private:
 
 int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
-	InstallManager::Exec();
+	const auto args = GetCmdLineArgs();
+
+	if (args.size() > 1 && ::lstrcmpiW(args[1].c_str(), L"--uninstall") == 0)
+	{
+		LaussInstaller::Uninstall();
+	}
+	else
+	{
+		// TODO: Detect previous installation
+		LaussInstaller::Install();
+	}
 
 	return NO_ERROR;
 }
