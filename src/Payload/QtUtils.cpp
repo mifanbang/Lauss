@@ -44,7 +44,7 @@ std::vector<IndexedMethod> GetMethods(const QObject& object)
 	const QMetaObject* metaObj = (object.metaObject)();
 
 	const auto idxRange = std::ranges::iota_view{
-		0,  // , or Q(QMetaObject::methodOffset)(metaObj) for the leaf class only
+		0,  // Or Q(QMetaObject::methodOffset)(metaObj) for the leaf class only
 		Q(QMetaObject::methodCount)(metaObj)
 	};
 	auto methodList = idxRange
@@ -70,7 +70,12 @@ std::optional<std::vector<Connection*>> GetConnections(QObject& object, const ch
 
 	std::vector<Connection*> connections;
 	{
-		const auto connList = object.d_ptr->connections->signalVector->GetConnectionList(signalIndex);
+		const auto connList =
+			object
+			.d_ptr
+			->connections
+			->signalVector
+			->GetConnectionList(signalIndex);
 		for (Connection* conn = connList.front;
 			conn;
 			conn = conn->nextConnectionList)

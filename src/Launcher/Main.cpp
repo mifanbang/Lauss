@@ -103,19 +103,18 @@ public:
 
 	[[nodiscard]] static std::optional<LoadedPayload> LoadPayload()
 	{
-		const auto currDir = GetExeDirectory();
+		const auto currDir = GetExeDir();
 		assert(currDir.size() > 0);
 		if (currDir.size() == 0)
 			return std::nullopt;
 
-		const auto pathPayload = currDir + L"\\" + PayloadName();
+		const auto pathPayload = currDir + PayloadName();
 		gan::AutoWinModule hMod{ ::LoadLibraryW(pathPayload.c_str()) };
 		assert(hMod);
 		if (!hMod)
 			return std::nullopt;
 
-		constexpr const char* k_hookFuncName = "Dummy";
-		const auto hookFunc = gan::DllLookup::Get<HOOKPROC>(pathPayload, k_hookFuncName);
+		const auto hookFunc = gan::DllLookup::Get<HOOKPROC>(pathPayload, ExportedHookFuncName());
 		assert(hookFunc);
 		if (hookFunc == nullptr)
 			return std::nullopt;

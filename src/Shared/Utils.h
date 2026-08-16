@@ -47,6 +47,13 @@ void Printf([[maybe_unused]] Args... args)
 
 [[nodiscard]] std::wstring GetExePath();
 
-[[nodiscard]] std::wstring GetExeDirectory();  // Inclusive of the trailing `\\`
+// Inclusive of the trailing `\\`
+[[nodiscard]] std::wstring GetExeDir();
+
+// Installation directory: C:\Users\[username]\AppData\Local\Lauss\
+// Inclusive of the trailing `\\`
+[[nodiscard]] std::wstring GetInstallationDir();
+
+[[nodiscard]] bool CreateDirRecursively(std::wstring_view path);
 
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);

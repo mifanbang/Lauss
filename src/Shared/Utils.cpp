@@ -18,9 +18,12 @@
 
 #include "Utils.h"
 
+#include "LaussDef.h"
+
 #include <Types.h>
 
 #include <windows.h>
+#include <shlobj.h>
 
 #include <cassert>
 #include <filesystem>
@@ -74,7 +77,7 @@ std::wstring GetExePath()
 	return std::filesystem::path{ args[0] };
 }
 
-std::wstring GetExeDirectory()
+std::wstring GetExeDir()
 {
 	const auto args = GetCmdLineArgs();
 	assert(args.size() > 0);
@@ -85,6 +88,42 @@ std::wstring GetExeDirectory()
 		.parent_path()
 		.wstring()
 		.append(1, L'\\');
+}
+
+std::wstring GetInstallationDir()
+{
+	constexpr gan::WinDword k_defaultFlag = 0;
+	constexpr gan::WinHandle k_noAccessToken = nullptr;
+
+	std::wstring installDir;
+	{
+		wchar_t* pPath = nullptr;
+		const auto dirGetResult = ::SHGetKnownFolderPath(FOLDERID_LocalAppData, k_defaultFlag, k_noAccessToken, &pPath);
+		if (dirGetResult == S_OK)
+		{
+			installDir =
+				std::wstring{ pPath }
+				.append(1, L'\\')
+				.append(ProductName())
+				.append(1, L'\\');
+		}
+		::CoTaskMemFree(pPath);
+	}
+	return installDir;
+}
+
+bool CreateDirRecursively(std::wstring_view path)
+{
+	assert(!path.empty());
+	if (path.empty())
+		return false;
+
+	constexpr HWND k_noParent = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noSecAttr = nullptr;
+	const auto sysResult = ::SHCreateDirectoryExW(k_noParent, path.data(), k_noSecAttr);
+	return sysResult == NO_ERROR
+		|| sysResult == ERROR_FILE_EXISTS
+		|| sysResult == ERROR_ALREADY_EXISTS;
 }
 
 std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)

@@ -17,6 +17,7 @@
  */
 
 #include "InstallerRegistry.h"
+#include "LaussDef.h"
 #include "Registry.h"
 #include "Utils.h"
 
@@ -67,7 +68,7 @@ bool UninstallRegistry::Create(const InstallContext& ctx)
 
 	using RegKeyValue = std::pair<std::wstring_view, std::wstring_view>;
 	const std::array<RegKeyValue, 6> keyValues{ {
-		{ L"DisplayName"sv, L"Lauss"sv },
+		{ L"DisplayName"sv, ProductName() },
 		{ L"Publisher"sv, L"Mifan Bang" },
 		{ L"URLInfoAbout"sv, L"https://debug.tw"sv },
 		{ L"UninstallString"sv, L"cmd.exe"sv },

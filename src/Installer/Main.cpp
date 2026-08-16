@@ -27,7 +27,6 @@
 #include <Types.h>
 
 #include <windows.h>
-#include <shlobj.h>
 
 #include <array>
 #include <cassert>
@@ -43,41 +42,9 @@ using namespace std::literals;
 namespace
 {
 
-[[nodiscard]] bool CreateFullPath(std::wstring_view path)
-{
-	assert(!path.empty());
-	if (path.empty())
-		return false;
-
-	constexpr HWND k_noParent = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noSecAttr = nullptr;
-	const auto sysResult = ::SHCreateDirectoryExW(k_noParent, path.data(), k_noSecAttr);
-	return sysResult == NO_ERROR
-		|| sysResult == ERROR_FILE_EXISTS
-		|| sysResult == ERROR_ALREADY_EXISTS;
-}
-
 class InstallHelper
 {
 public:
-	// Installation directory: C:\Users\[username]\AppData\Local\Lauss\
-	// Inclusive of the trailing `\\`
-	[[nodiscard]] static std::wstring GetTargetDir()
-	{
-		constexpr gan::WinDword k_defaultFlag = 0;
-		constexpr gan::WinHandle k_noAccessToken = nullptr;
-
-		std::wstring installDir;
-		{
-			wchar_t* pPath = nullptr;
-			const auto dirGetResult = ::SHGetKnownFolderPath(FOLDERID_LocalAppData, k_defaultFlag, k_noAccessToken, &pPath);
-			if (dirGetResult == S_OK)
-				installDir = std::wstring{ pPath }.append(L"\\Lauss\\");
-			::CoTaskMemFree(pPath);
-		}
-		return installDir;
-	}
-
 	struct PackedItem
 	{
 		uint32_t resName;
@@ -87,8 +54,8 @@ public:
 	{
 		// Unpack files from resource section
 		constexpr std::array<PackedItem, 2> k_items{ {
-			{.resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
-			{.resName = PAYLOAD,	.path = &InstallContext::pathPayload }
+			{ .resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
+			{ .resName = PAYLOAD,	.path = &InstallContext::pathPayload }
 		} };
 		for (const auto& item : k_items)
 		{
@@ -181,7 +148,7 @@ class LaussInstaller
 public:
 	static void Install()
 	{
-		const auto installDir = InstallHelper::GetTargetDir();
+		const auto installDir = GetInstallationDir();
 		assert(installDir.size() > 0);
 		if (installDir.size() == 0)
 		{
@@ -197,7 +164,7 @@ public:
 			return;
 		}
 
-		[[maybe_unused]] const auto createPathResult = CreateFullPath(installDir);
+		[[maybe_unused]] const auto createPathResult = CreateDirRecursively(installDir);
 
 		const auto installResult = InstallHelper::Install(installCtx.value());
 		assert(installResult);
@@ -222,7 +189,7 @@ public:
 
 	static void Uninstall()
 	{
-		const auto exeDir = GetExeDirectory();
+		const auto exeDir = GetExeDir();
 		assert(exeDir.size() > 0);
 		if (exeDir.size() == 0)
 		{

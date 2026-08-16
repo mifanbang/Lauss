@@ -19,11 +19,17 @@
 #pragma once
 
 
-constexpr auto VersionStr()
+#define PRODUCT_NAME	L"Lauss"
+
+consteval auto ProductName()
+{
+	return PRODUCT_NAME;
+}
+consteval auto VersionStr()
 {
 	return L"0.0";
 }
-constexpr auto CmdLineOptUninstall()
+consteval auto CmdLineOptUninstall()
 {
 	return L"--uninstall";
 }
@@ -43,6 +49,17 @@ consteval auto PayloadName()
 consteval auto LineImageName()
 {
 	return L"LINE.exe";
+}
+
+#define EXPORTED_HOOK_FUNC_NAME	Dummy
+
+consteval auto ExportedHookFuncName()
+{
+#define _STRINGIFY_INNER(x)	#x
+#define _STRINGIFY(x)		_STRINGIFY_INNER(x)
+	return _STRINGIFY(EXPORTED_HOOK_FUNC_NAME);
+#undef _STRINGIFY
+#undef _STRINGIFY_INNER
 }
 
 consteval auto BannerObjectName()

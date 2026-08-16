@@ -191,7 +191,7 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID)
 
 
 extern "C" __declspec(dllexport)
-LRESULT CALLBACK Dummy(int code, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK EXPORTED_HOOK_FUNC_NAME(int code, WPARAM wParam, LPARAM lParam)
 {
 	return ::CallNextHookEx(nullptr, code, wParam, lParam);
 }

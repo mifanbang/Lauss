@@ -19,6 +19,7 @@
 #pragma once
 
 #include "Installer.h"
+#include "LaussDef.h"
 
 
 class StartUpRegistry
@@ -29,7 +30,7 @@ public:
 
 private:
 	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
-	constexpr static auto k_subkeyLauss = L"Lauss";
+	constexpr static auto k_subkeyLauss = ProductName();
 };
 
 
@@ -40,5 +41,5 @@ public:
 	[[nodiscard]] static bool Remove();
 
 private:
-	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Lauss";
+	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" PRODUCT_NAME;
 };
