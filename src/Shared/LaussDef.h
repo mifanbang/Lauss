@@ -23,22 +23,23 @@ constexpr auto VersionStr()
 {
 	return L"0.0";
 }
+constexpr auto CmdLineOptUninstall()
+{
+	return L"--uninstall";
+}
 
 consteval auto UninstallerName()
 {
 	return L"Uninstaller.exe";
 }
-
 consteval auto LauncherName()
 {
 	return L"Lauss.exe";
 }
-
 consteval auto PayloadName()
 {
 	return L"Payload.dll";
 }
-
 consteval auto LineImageName()
 {
 	return L"LINE.exe";
@@ -48,12 +49,10 @@ consteval auto BannerObjectName()
 {
 	return L"bannerWholeImage";
 }
-
 consteval auto BannerRootClassName()
 {
 	return "AdvertisementPanel";
 }
-
 consteval auto MainWindowClassName()
 {
 	return "AllInOneWindow";

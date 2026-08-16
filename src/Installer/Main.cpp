@@ -78,18 +78,18 @@ public:
 		return installDir;
 	}
 
-	struct InstallItem
+	struct PackedItem
 	{
 		uint32_t resName;
 		const std::wstring InstallContext::* path;
 	};
 	[[nodiscard]] static bool Install(const InstallContext& ctx)
 	{
-		constexpr std::array<InstallItem, 2> k_items{
-			InstallItem{ .resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
-			InstallItem{ .resName = PAYLOAD,	.path = &InstallContext::pathPayload }
-		};
-
+		// Unpack files from resource section
+		constexpr std::array<PackedItem, 2> k_items{ {
+			{.resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
+			{.resName = PAYLOAD,	.path = &InstallContext::pathPayload }
+		} };
 		for (const auto& item : k_items)
 		{
 			const auto data = GetResource(MAKEINTRESOURCE(item.resName));
@@ -102,7 +102,12 @@ public:
 			if (!writeResult)
 				return false;
 		}
-		return true;
+
+		// Copy installer
+		constexpr BOOL k_alwaysOverwrite = FALSE;
+		const auto copyResult = ::CopyFileW(GetExePath().c_str(), ctx.pathUninstaller.c_str(), k_alwaysOverwrite);
+		assert(copyResult);
+		return copyResult != FALSE;
 	}
 
 private:
@@ -274,7 +279,7 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
 	const auto args = GetCmdLineArgs();
 
-	if (args.size() > 1 && ::lstrcmpiW(args[1].c_str(), L"--uninstall") == 0)
+	if (args.size() > 1 && ::lstrcmpiW(args[1].c_str(), CmdLineOptUninstall()) == 0)
 	{
 		LaussInstaller::Uninstall();
 	}

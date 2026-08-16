@@ -64,6 +64,16 @@ std::vector<std::wstring> GetCmdLineArgs()
 	return resultVector;
 }
 
+std::wstring GetExePath()
+{
+	const auto args = GetCmdLineArgs();
+	assert(args.size() > 0);
+	if (args.empty())
+		return { };
+
+	return std::filesystem::path{ args[0] };
+}
+
 std::wstring GetExeDirectory()
 {
 	const auto args = GetCmdLineArgs();

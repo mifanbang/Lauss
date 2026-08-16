@@ -45,6 +45,8 @@ void Printf([[maybe_unused]] Args... args)
 
 [[nodiscard]] std::vector<std::wstring> GetCmdLineArgs();
 
+[[nodiscard]] std::wstring GetExePath();
+
 [[nodiscard]] std::wstring GetExeDirectory();  // Inclusive of the trailing `\\`
 
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
