@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\Installer\Main.cpp" />
     <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
+    <ClCompile Include="..\src\Installer\RestartSession.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\Installer\Resource.rc" />
@@ -11,5 +12,6 @@
     <ClInclude Include="..\src\Installer\Resource.h" />
     <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
     <ClInclude Include="..\src\Installer\Installer.h" />
+    <ClInclude Include="..\src\Installer\RestartSession.h" />
   </ItemGroup>
 </Project>

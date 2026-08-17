@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
     <ClCompile Include="..\src\Installer\Main.cpp" />
+    <ClCompile Include="..\src\Installer\RestartSession.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\Installer\Resource.rc">
@@ -34,6 +35,7 @@
     <ClInclude Include="..\src\Installer\Installer.h" />
     <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
     <ClInclude Include="..\src\Installer\Resource.h" />
+    <ClInclude Include="..\src\Installer\RestartSession.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -130,7 +132,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;comctl32.lib;rstrtmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -153,7 +155,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;comctl32.lib;rstrtmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,7 +173,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;comctl32.lib;rstrtmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -194,7 +196,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>$(SolutionDir)\dep\gandr\bin\Gandr\$(Platform)\$(Configuration)\gandr.lib;$(SolutionDir)\bin\$(Platform)\$(Configuration)\Shared.lib;comctl32.lib;rstrtmgr.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

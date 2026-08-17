@@ -56,4 +56,8 @@ void Printf([[maybe_unused]] Args... args)
 
 [[nodiscard]] bool CreateDirRecursively(std::wstring_view path);
 
+[[nodiscard]] std::wstring CreateTempFile();
+
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
+
+void WaitOnParentProcess(std::wstring_view parentImage);
