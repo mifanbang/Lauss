@@ -79,7 +79,7 @@ bool UninstallRegistry::Create(const InstallContext& ctx)
 	size_t succeeded = 0;
 	for (const auto [key, value] : keyValues)
 		// Per API doc, terminating '\0' must be included.
-		regKey.SetValue<RegistryKey::Type::String>(key, value.data(), (value.size() + 1) << 1);
+		succeeded += regKey.SetValue<RegistryKey::Type::String>(key, value.data(), (value.size() + 1) << 1);
 	return succeeded == keyValues.size();
 }
 
