@@ -20,9 +20,9 @@
 
 #include "LaussDef.h"
 
-#include <Handle.h>
-#include <ProcessList.h>
-#include <Types.h>
+#include <Gandr/Handle.hpp>
+#include <Gandr/ProcessList.hpp>
+#include <Gandr/Types.hpp>
 
 #include <windows.h>
 #include <shlobj.h>

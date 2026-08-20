@@ -24,8 +24,8 @@
 #include "RestartSession.h"
 #include "Utils.h"
 
-#include <Handle.h>
-#include <Types.h>
+#include <Gandr/Handle.hpp>
+#include <Gandr/Types.hpp>
 
 #include <windows.h>
 #include <commctrl.h>

@@ -20,11 +20,7 @@
 #include "LaussDef.h"
 #include "Utils.h"
 
-#include <DllInjector.h>
-#include <DllLookup.h>
-#include <Handle.h>
-#include <ModuleList.h>
-#include <ProcessList.h>
+#include <Gandr.hpp>
 
 #include <windows.h>
 #include <shlwapi.h>

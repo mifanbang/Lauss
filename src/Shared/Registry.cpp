@@ -18,7 +18,7 @@
 
 #include "Registry.h"
 
-#include <Types.h>
+#include <Gandr/Types.hpp>
 
 #include <windows.h>
 

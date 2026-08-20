@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <DllLookup.h>
-#include <Types.h>
+#include <Gandr/DllLookup.hpp>
+#include <Gandr/Types.hpp>
 
 #include <algorithm>
 #include <atomic>

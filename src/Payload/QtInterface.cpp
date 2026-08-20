@@ -20,7 +20,7 @@
 
 #include "Utils.h"
 
-#include <DllLookup.h>
+#include <Gandr/DllLookup.hpp>
 
 
 std::vector<std::string> DynamicImports::s_unresolved;

@@ -20,7 +20,7 @@
 
 #include "Installer.h"
 
-#include <Types.h>
+#include <Gandr/Types.hpp>
 
 #include <array>
 #include <optional>

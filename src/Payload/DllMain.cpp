@@ -23,7 +23,7 @@
 #include "QtUtils.h"
 #include "Utils.h"
 
-#include <Hook.h>
+#include <Gandr/Hook.hpp>
 
 #include <windows.h>
 
