@@ -18,35 +18,39 @@
 
 #pragma once
 
-#include <Types.h>
+#include <Gandr/DebugSession.hpp>
 
+#include <string>
 #include <string_view>
 
 
 namespace gan
 {
 
-
 // ---------------------------------------------------------------------------
-// Class DllLookup - Resolve a symbol with the specified dynamic lib.
-//					 Loead the library when needed.
+// class DllPreloadDebugSession - A DebugSession implementation that preloads a DLL at entry point
 // ---------------------------------------------------------------------------
 
-class DllLookup
+class DllPreloadDebugSession : public DebugSession
 {
 public:
-	template <class T>
-	static auto Get(std::wstring_view lib, std::string_view name)
+	enum class Option : uint8_t
 	{
-		if constexpr (IsAnyFuncPtr<T>)
-			return ToAnyFn<T>(LoadLibAndGetSymbol(lib, name));
-		else
-			return reinterpret_cast<T>(LoadLibAndGetSymbol(lib, name));
-	}
+		EndSessionSync,  // Automatically ends the session when OnDllLoaded() detects loaded module
+		EndSessionAsync,  // Automatically ends the session when target process starts calling LoadLibraryW()
+		KeepAlive  // Keep the session alive
+	};
+
+	DllPreloadDebugSession(const CreateProcessParam& newProcParam, std::wstring_view payloadPath, Option option);
 
 private:
-	static void* LoadLibAndGetSymbol(std::wstring_view lib, std::string_view name);
-};
+	ContinueStatus OnProcessCreated(const CREATE_PROCESS_DEBUG_INFO& procInfo) noexcept override;
+	ContinueStatus OnExceptionTriggered(const EXCEPTION_DEBUG_INFO& exceptionInfo) override;
+	ContinueStatus OnDllLoaded(const LOAD_DLL_DEBUG_INFO& dllInfo) noexcept override;
 
+	WinHandle m_hMainThread;
+	std::wstring m_payloadPath;
+	Option m_option;
+};
 
 }  // namespace gan

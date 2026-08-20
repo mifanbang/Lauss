@@ -18,8 +18,8 @@
 
 #include "Test.h"
 
-#include <DllInjector.h>
-#include <Types.h>
+#include <Gandr/DllInjector.hpp>
+#include <Gandr/Types.hpp>
 
 #include <intrin.h>
 #include <windows.h>

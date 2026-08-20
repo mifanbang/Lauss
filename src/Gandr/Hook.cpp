@@ -16,10 +16,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <Hook.h>
+#include <Gandr/Hook.hpp>
 
-#include <InstructionDecoder.h>
-#include <Types.h>
+#include <Gandr/InstructionDecoder.hpp>
+#include <Gandr/Types.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -37,7 +37,6 @@
 
 namespace
 {
-
 
 // workaround for compile error when we'd like to put Is64() in a static_assert
 template <size_t>
@@ -95,7 +94,6 @@ struct Trampoline
 
 	uint8_t opcode[k_size] { };
 };
-
 
 
 // ---------------------------------------------------------------------------
@@ -186,7 +184,7 @@ class TrampolineRegistry : public gan::Singleton<TrampolineRegistry>
 	friend class gan::Singleton<TrampolineRegistry>;
 
 public:
-	constexpr static auto k_trampolineSize = Trampoline::k_size;
+	constexpr static auto k_trampolineSize = sizeof(Trampoline);
 
 	// Try allocating a trampoline within the range of 32-bit offset from "desiredAddress".
 	gan::MemAddr Register(const Trampoline& trampoline, gan::MemRange desiredAddrRange)
@@ -204,10 +202,9 @@ public:
 		m_freeLists[pageIndex].pop_back();
 
 		auto trampolineAddr = m_pages[pageIndex].Offset(slot.pageOffset);
-		memcpy(trampolineAddr.Ptr<uint8_t>(), trampoline.opcode, k_trampolineSize);
-
-		assert(m_records.find(trampolineAddr) == m_records.end());
-		m_records.try_emplace(trampolineAddr, pageIndex);
+		trampolineAddr.Ref<Trampoline>() = trampoline;
+		[[maybe_unused]] auto [_, inserted] = m_records.try_emplace(trampolineAddr, pageIndex);
+		assert(inserted);
 
 		return trampolineAddr;
 	}
@@ -333,7 +330,7 @@ private:
 		const auto numTrampolinesPerPage = m_allocGranularity / k_trampolineSize;
 		m_freeLists.emplace_back(
 			std::views::iota(0u, numTrampolinesPerPage)
-			| std::views::transform([](auto idx) { return FreeSlot{ idx * k_trampolineSize }; })
+			| std::views::transform([](auto idx) { return FreeSlot{ static_cast<uint32_t>(idx*k_trampolineSize) }; })
 			| std::ranges::to<FreeList>()
 		);
 
@@ -540,15 +537,17 @@ Prolog GenerateHookProlog(gan::MemAddr origFunc, gan::MemAddr hookFunc, PrologSt
 
 bool WriteMemory(gan::MemAddr address, const std::span<const uint8_t>& data) noexcept
 {
-	auto rawPtr = address.Ptr<uint8_t>();
-
 	DWORD oldAttr{ };
-	DWORD dontCare{ };
-	::VirtualProtect(rawPtr, data.size(), PAGE_EXECUTE_READWRITE, &oldAttr);
-	memcpy(rawPtr, data.data(), data.size());
-	::VirtualProtect(rawPtr, data.size(), oldAttr, &dontCare);
+	if (auto rawPtr = address.Ptr<uint8_t>();
+		::VirtualProtect(rawPtr, data.size(), PAGE_EXECUTE_READWRITE, &oldAttr))
+	{
+		memcpy(rawPtr, data.data(), data.size());
 
-	return true;
+		DWORD dontCare{ };
+		::VirtualProtect(rawPtr, data.size(), oldAttr, &dontCare);
+		return true;
+	}
+	return false;
 }
 
 
@@ -606,10 +605,11 @@ std::optional<PrologWithDisp> CopyProlog(gan::ConstMemAddr addr, uint8_t length)
 		{
 			const uint8_t nextInstLen = nextInstInfo->GetLength();
 
-			if (copiedProlog.prolog.length + nextInstLen <= Prolog::k_maxSize)  // Check remaining space for the instruction
+			if (copiedProlog.prolog.length + nextInstLen <= sizeof(copiedProlog.prolog.opcode))  // Check remaining space for the instruction
 			{
-				memcpy(
+				memcpy_s(
 					copiedProlog.prolog.opcode + copiedProlog.prolog.length,
+					sizeof(copiedProlog.prolog.opcode) - copiedProlog.prolog.length,
 					addr.Offset(copiedProlog.prolog.length).ConstPtr<uint8_t>(),
 					nextInstLen
 				);
@@ -711,18 +711,26 @@ Trampoline GenerateTrampoline(gan::MemAddr origFuncAddr, const Prolog& prolog) n
 	static_assert(Trampoline::k_size >= Prolog::k_maxSize + OpcodeGenerator::AbsLongJmp64::k_length);
 
 	Trampoline result;
-	memcpy(result.opcode, prolog.opcode, prolog.length);
+	memcpy_s(result.opcode, sizeof(result.opcode), prolog.opcode, prolog.length);
 
 	if constexpr (gan::Is64())
 	{
-		auto& opcodeJmp = reinterpret_cast<uint8_t(&)[14]>(result.opcode[prolog.length]);  // ugly...
+		using OpcodeAbsLongJmp64 = uint8_t[14];
+		auto& opcodeJmp =
+			gan::MemAddr{ result.opcode }
+			.Offset(prolog.length)
+			.Ref<OpcodeAbsLongJmp64>();
 		OpcodeGenerator::AbsLongJmp64::Make(origFuncAddr.Offset(prolog.length), opcodeJmp);
 	}
 	else
 	{
 		// Instruction length is less of an issue for trampolines as we usually have plenty of space.
-		// Using a 6-byte "push and ret" instead of a 5-byte relative jump is fine.
-		auto& opcodeJmp = reinterpret_cast<uint8_t(&)[6]>(result.opcode[prolog.length]);  // ugly...
+		// Using a 6-byte "push and ret" instead of a 5-byte relative jump should be fine.
+		using OpcideAbsLongJmp32 = uint8_t[6];
+		auto& opcodeJmp =
+			gan::MemAddr{ result.opcode }
+			.Offset(prolog.length)
+			.Ref<OpcideAbsLongJmp32>();
 		OpcodeGenerator::AbsLongJmp32::Make(origFuncAddr.Offset(prolog.length), opcodeJmp);
 	}
 	return result;
@@ -793,7 +801,9 @@ Hook::OpResult Hook::Install()
 			return OpResult::Hooked;
 		}
 		else
+		{
 			hookReg.Unregister(m_funcOrig);
+		}
 	}
 
 	trampolineReg.Unregister(trampolineAddr);
@@ -858,6 +868,5 @@ ConstMemAddr Hook::GetTrampolineAddr(ConstMemAddr origFunc)
 	assert(addr);
 	return addr;
 }
-
 
 }  // namespace gan

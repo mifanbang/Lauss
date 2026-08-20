@@ -18,13 +18,13 @@
 
 #include "Test.h"
 
-#include <PE.h>
+#include <Gandr/PE.hpp>
 
-#include <optional>
 #include <psapi.h>
 #include <windows.h>
 
 #include <algorithm>
+#include <optional>
 #include <ranges>
 #include <string_view>
 
@@ -34,7 +34,6 @@ using namespace std::literals;
 
 namespace
 {
-
 
 std::pair<HMODULE, void*> GetModuleInfo(const wchar_t* modName)
 {
@@ -47,7 +46,6 @@ std::pair<HMODULE, void*> GetModuleInfo(const wchar_t* modName)
 	return std::make_pair(hMod, modInfo.lpBaseOfDll);
 }
 
-
 gan::Rva SearchFunctionRvaByName(const gan::ImageExportData::ExportedFunctionList& exportData, std::string_view name)
 {
 	const auto itr = std::ranges::find_if(
@@ -56,7 +54,6 @@ gan::Rva SearchFunctionRvaByName(const gan::ImageExportData::ExportedFunctionLis
 	);
 	return itr != exportData.end() ? itr->rva : 0;
 }
-
 
 }  // unnamed namespace
 

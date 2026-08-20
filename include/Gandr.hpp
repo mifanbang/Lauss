@@ -16,14 +16,22 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Test.h"
+#pragma once
 
-#include <windows.h>
-
-
-int main()
-{
-	const bool result = TestManager::RunAll();
-
-	return result ? NO_ERROR : -1;
-}
+#include <Gandr/Breakpoint.hpp>
+#include <Gandr/Buffer.hpp>
+#include <Gandr/Debugger.hpp>
+#include <Gandr/DebugSession.hpp>
+#include <Gandr/DllInjector.hpp>
+#include <Gandr/DllLookup.hpp>
+#include <Gandr/DllPreloadDebugSession.hpp>
+#include <Gandr/Handle.hpp>
+#include <Gandr/Hash.hpp>
+#include <Gandr/Hook.hpp>
+#include <Gandr/InstructionDecoder.hpp>
+#include <Gandr/Memory.hpp>
+#include <Gandr/ModuleList.hpp>
+#include <Gandr/Mutex.hpp>
+#include <Gandr/PE.hpp>
+#include <Gandr/ProcessList.hpp>
+#include <Gandr/Types.hpp>

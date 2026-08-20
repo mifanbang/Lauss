@@ -18,7 +18,7 @@
 
 #include "Test.h"
 
-#include <ModuleList.h>
+#include <Gandr/ModuleList.hpp>
 
 #include <algorithm>
 
@@ -28,13 +28,15 @@
 
 namespace
 {
-	bool SearchModInList(const gan::ModuleList& modList, const wchar_t* modName)
-	{
-		const auto funcMatchMod = [modName](const gan::ModuleInfo& modInfo) {
-			return StrStrIW(modInfo.imageName.c_str(), modName) != nullptr;
-		};
-		return std::ranges::find_if(modList, funcMatchMod) != modList.end();
-	}
+
+bool SearchModInList(const gan::ModuleList& modList, const wchar_t* modName)
+{
+	const auto funcMatchMod = [modName](const gan::ModuleInfo& modInfo) {
+		return StrStrIW(modInfo.imageName.c_str(), modName) != nullptr;
+	};
+	return std::ranges::find_if(modList, funcMatchMod) != modList.end();
+}
+
 }  // unnamed namespace
 
 

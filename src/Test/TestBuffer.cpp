@@ -18,7 +18,7 @@
 
 #include "Test.h"
 
-#include <Buffer.h>
+#include <Gandr/Buffer.hpp>
 
 #include <limits>
 

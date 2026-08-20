@@ -16,14 +16,30 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Test.h"
+#pragma once
 
-#include <windows.h>
+#include <Gandr/Types.hpp>
+
+#include <array>
+#include <cstddef>
+#include <expected>
 
 
-int main()
+namespace gan
 {
-	const bool result = TestManager::RunAll();
 
-	return result ? NO_ERROR : -1;
-}
+template <size_t NumOfBits>
+	requires ((NumOfBits & 7) == 0)  // Must be a multiple of 8
+struct Hash : public std::array<uint8_t, (NumOfBits >> 3)>
+{
+};
+
+class Hasher
+{
+public:
+	// Generate the SHA256 hash for a given buffer. On error, return a Windows error
+	// code of the last failed operation.
+	static std::expected<Hash<256>, WinErrorCode> GetSHA(ConstMemAddr dataAddr, size_t size);
+};
+
+}  // namespace gan

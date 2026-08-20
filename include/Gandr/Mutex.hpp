@@ -18,15 +18,12 @@
 
 #pragma once
 
-#include <windows.h>
-
 #include <shared_mutex>
 #include <type_traits>
 
 
 namespace gan
 {
-
 
 template <class T>
 class ThreadSafeResource
@@ -63,6 +60,5 @@ private:
 	T m_resInst;
 	mutable std::shared_mutex m_mutex;
 };
-
 
 }  // namespace gan

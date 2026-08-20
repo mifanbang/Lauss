@@ -18,48 +18,41 @@
 
 #pragma once
 
-#include <Handle.h>
+#include <Gandr/Types.hpp>
 
+#include <expected>
 #include <string>
-#include <string_view>
+#include <vector>
 
 
 namespace gan
 {
 
+struct ModuleInfo
+{
+	ConstMemAddr base;
+	size_t size;
+	std::wstring imageName;  // Incl. file extension
+	std::wstring imagePath;
+};
+using ModuleList = std::vector<ModuleInfo>;
+
 
 // ---------------------------------------------------------------------------
-// Class DLLInjectorByContext - DLL injection by setting context of a thread
+// Class ModuleEnumerator - Module list snapshot taker
 // ---------------------------------------------------------------------------
 
-class DllInjectorByContext
+class ModuleEnumerator
 {
 public:
-	enum class Result : uint8_t
+	enum class Error
 	{
-		Succeeded,
-
-		GetContextFailed,
-		RemoteAllocFailed,
-		DLLPathNotWritten,
-		StackFrameNotWritten,
-		SetContextFailed
+		SnapshotFailed,  // CreateToolhelp32Snapshot() failed
+		Module32Failed,  // A Module32*() function failed
 	};
 
-	DllInjectorByContext(WinHandle hProcess, WinHandle hThread);
-
-	// m_hProcess and m_hThread will be closed in destructor
-	DllInjectorByContext(const DllInjectorByContext&) = delete;
-	DllInjectorByContext& operator=(const DllInjectorByContext&) = delete;
-
-	Result Inject(std::wstring_view dllPath);
-
-private:
-	AutoWinHandle m_hProcess;
-	AutoWinHandle m_hThread;
-	std::wstring m_dllPath;
+	std::expected<ModuleList, Error> operator()(uint32_t processId);
+	std::expected<ModuleList, Error> operator()(WinHandle process);
 };
-
-
 
 }  // namespace gan
