@@ -34,6 +34,41 @@
 namespace
 {
 
+
+// Per API's doc, `cmdline` must not be const.
+[[nodiscard]] bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
+{
+	constexpr wchar_t* k_emptyAppName = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
+	constexpr BOOL k_noInheritHandles = FALSE;
+	constexpr void* k_useCurrentEnv = nullptr;
+	constexpr wchar_t* k_useCurrentDir = nullptr;
+
+	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
+	PROCESS_INFORMATION procInfo{ };
+	const auto newProcessResult = ::CreateProcessW(
+		k_emptyAppName,
+		cmdline.data(),
+		k_noProcSecAttr,
+		k_noThrdSecAttr,
+		k_noInheritHandles,
+		NORMAL_PRIORITY_CLASS | flag,
+		k_useCurrentEnv,
+		k_useCurrentDir,
+		&k_startupInfo,
+		&procInfo
+	);
+
+	if (newProcessResult != FALSE)
+	{
+		::CloseHandle(procInfo.hThread);
+		::CloseHandle(procInfo.hProcess);
+		return true;
+	}
+	return false;
+}
+
 [[nodiscard]] bool CreateAndRunShadowUninstaller()
 {
 	const auto exePath = GetExePath();
@@ -49,36 +84,16 @@ namespace
 	constexpr BOOL k_overwrite = FALSE;
 	::CopyFileW(exePath.c_str(), tmpFilePath.c_str(), k_overwrite);
 
-	constexpr wchar_t* k_emptyAppName = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-	constexpr wchar_t* k_useCurrentDir = nullptr;
-
-	std::wstring cmdLine =
+	auto cmdLine =
 		AddDoubleQuotes(tmpFilePath)
 		.append(1, L' ')
 		.append(CmdLineOptUninstall());
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const auto newProcessResult = ::CreateProcessW(
-		k_emptyAppName,
-		cmdLine.data(),
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS,
-		k_useCurrentEnv,
-		k_useCurrentDir,
-		&k_startupInfo,
-		&procInfo
-	);
-	if (newProcessResult == FALSE)
+	constexpr gan::WinDword k_noFlags = 0;
+	const auto newProcess = CreateProcessWithCommand(cmdLine, k_noFlags);
+	assert(newProcess);
+	if (!newProcess)
 		return false;
 
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
 	return true;
 }
 
@@ -144,37 +159,14 @@ void CleanUpShadowUninstaller()
 	if (exePath.size() == 0)
 		return;
 
-	constexpr wchar_t* k_emptyAppName = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-	constexpr wchar_t* k_useCurrentDir = nullptr;
-
 	auto cmdLine =
 		std::wstring{ L"cmd.exe /C timeout /t 5 /nobreak >nul & del \"" }
 		.append(exePath)
 		.append(1, L'"');
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const auto newProcessResult = ::CreateProcessW(
-		k_emptyAppName,
-		cmdLine.data(),
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
-		k_useCurrentEnv,
-		k_useCurrentDir,
-		&k_startupInfo,
-		&procInfo
-	);
-	assert(newProcessResult);
-	if (newProcessResult == FALSE)
+	const auto newProcess = CreateProcessWithCommand(cmdLine, CREATE_NO_WINDOW);
+	assert(newProcess);
+	if (!newProcess)
 		return;
-
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
 }
 
 }  // unnames namespace
@@ -224,7 +216,9 @@ void LaussUninstaller::Exec()
 	}
 
 	// File and directory removal
-	[[maybe_unused]] const auto filesRemoved = RemoveFilesAndDir(installCtx.value());
+	const auto filesRemoved = RemoveFilesAndDir(installCtx.value());
+	if (!filesRemoved)
+		return;
 
 	// Registry clean-ups
 	[[maybe_unused]] const auto regStartUpRemoved = StartUpRegistry::Remove();
