@@ -165,7 +165,7 @@ bool LaussUninstaller::MsgBoxCloseLine()
 	return buttonResult == IDYES;
 }
 
-bool LaussUninstaller::RestartSessionProcessHandler(auto&& procList)
+bool LaussUninstaller::RestartSessionProcessHandler(const RestartSession::ProcessList& procList)
 {
 	const bool lineFound = std::ranges::any_of(
 		procList,

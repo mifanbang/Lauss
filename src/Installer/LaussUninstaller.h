@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "RestartSession.h"
+
 
 class LaussUninstaller
 {
@@ -28,6 +30,6 @@ private:
 	static bool MsgBoxCloseLine();
 
 	static bool CreateAndRunShadowUninstaller();
-	static bool RestartSessionProcessHandler(auto&& procList);
+	static bool RestartSessionProcessHandler(const RestartSession::ProcessList& procList);
 	static void CleanUpShadowUninstaller();
 };
