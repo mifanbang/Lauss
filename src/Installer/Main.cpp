@@ -18,24 +18,21 @@
 
 #include "Installer.h"
 #include "InstallerRegistry.h"
+#include "LaussUninstaller.h"
+#include "Resource.h"
+
 #include "LaussDef.h"
 #include "Registry.h"
-#include "Resource.h"
-#include "RestartSession.h"
 #include "Utils.h"
 
 #include <Gandr/Handle.hpp>
 #include <Gandr/Types.hpp>
 
 #include <windows.h>
-#include <commctrl.h>
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
-#include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstdint>
-#include <optional>
 #include <ranges>
 #include <span>
 #include <string>
@@ -225,195 +222,6 @@ private:
 
 	static void CleanUpFailedFiles(const InstallContext& /*ctx*/)
 	{
-	}
-};
-
-
-class LaussUninstaller
-{
-public:
-	static void Exec()
-	{
-		const auto exeDir = GetExeDir();
-		assert(exeDir.size() > 0);
-		if (exeDir.size() == 0)
-		{
-			// "Critical error: Failed to obtain current exe's parent path.\n"
-			return;
-		}
-
-		const auto installDir = GetInstallationDir();
-		assert(installDir.size() > 0);
-		if (installDir.size() == 0)
-		{
-			// "Critical error: Failed to obtain install path.\n";
-			return;
-		}
-
-		if (::lstrcmpiW(exeDir.c_str(), installDir.c_str()) == 0)
-		{
-			const auto runShadowResult = CreateAndRunShadowUninstaller();
-			assert(runShadowResult);
-			if (!runShadowResult)
-			{
-				// "Critical error: Failed to create and run shadow uninstaller.\n"
-			}
-			return;
-		}
-
-		WaitOnParentProcess(UninstallerName());
-
-		const auto installCtx = InstallContext::Make(installDir);
-		assert(installCtx);
-		if (!installCtx)
-		{
-			// "Critical error: Failed to generate install context.\n"
-			return;
-		}
-
-		// File and directory removal
-		{
-			RestartSession rmSession;
-			assert(rmSession);
-
-			const auto procRestartResult = rmSession.RestartProcessesUsingFiles(
-				installCtx.value(),
-				[](auto&& arg) { return RestartSessionProcessHandler(arg); }
-			);
-			if (!procRestartResult)
-				return;
-
-			::DeleteFileW(installCtx->pathLauncher.c_str());
-			::DeleteFileW(installCtx->pathPayload.c_str());
-			::DeleteFileW(installCtx->pathUninstaller.c_str());
-			::RemoveDirectoryW(installCtx->installDir.c_str());
-		}
-
-		// Registry clean-ups
-		[[maybe_unused]] const auto removeRegStartUp = StartUpRegistry::Remove();
-		[[maybe_unused]] const auto removeRegUninstall = UninstallRegistry::Remove();
-
-		CleanUpShadowUninstaller();
-	}
-
-private:
-	static bool CreateAndRunShadowUninstaller()
-	{
-		const auto exePath = GetExePath();
-		assert(exePath.size() > 0);
-		if (exePath.size() == 0)
-			return false;
-
-		const auto tmpFilePath = CreateTempFile();
-		assert(tmpFilePath.size() > 0);
-		if (tmpFilePath.size() == 0)
-			return false;
-
-		constexpr BOOL k_overwrite = FALSE;
-		::CopyFileW(exePath.c_str(), tmpFilePath.c_str(), k_overwrite);
-
-		constexpr wchar_t* k_emptyAppName = nullptr;
-		constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-		constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-		constexpr BOOL k_noInheritHandles = FALSE;
-		constexpr void* k_useCurrentEnv = nullptr;
-		constexpr wchar_t* k_useCurrentDir = nullptr;
-
-		std::wstring cmdLine =
-			AddDoubleQuotes(tmpFilePath)
-			.append(1, L' ')
-			.append(CmdLineOptUninstall());
-		STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-		PROCESS_INFORMATION procInfo{ };
-		const auto newProcessResult = ::CreateProcessW(
-			k_emptyAppName,
-			cmdLine.data(),
-			k_noProcSecAttr,
-			k_noThrdSecAttr,
-			k_noInheritHandles,
-			NORMAL_PRIORITY_CLASS,
-			k_useCurrentEnv,
-			k_useCurrentDir,
-			&k_startupInfo,
-			&procInfo
-		);
-		if (newProcessResult == FALSE)
-			return false;
-
-		::CloseHandle(procInfo.hThread);
-		::CloseHandle(procInfo.hProcess);
-		return true;
-	}
-
-	static bool MsgBoxCloseLine()
-	{
-		TASKDIALOGCONFIG config{
-			.cbSize = sizeof(config),
-			.hwndParent = nullptr,
-			.dwFlags = TDF_SIZE_TO_CONTENT,
-			.dwCommonButtons = TDCBF_YES_BUTTON | TDCBF_CLOSE_BUTTON,
-			.pszWindowTitle = L"Lauss Installer",
-			.pszMainIcon = TD_WARNING_ICON,
-			.pszMainInstruction = L"Lauss is running",
-			.pszContent =
-				L"Lauss is currently running inside your LINE app.\n\n"
-				L"To continue with the current operation, LINE is required to shut down.\n\n"
-				L"[YES] to let Lauss shut down LINE for you, or\n"
-				L"[CLOSE] to abort the current operation",
-		};
-
-		int buttonResult{ };
-		::TaskDialogIndirect(&config, &buttonResult, nullptr, nullptr);
-		return buttonResult == IDYES;
-	}
-
-	static bool RestartSessionProcessHandler(auto&& procList)
-	{
-		const bool lineFound = std::ranges::any_of(
-			procList,
-			[](const auto& procName) { return ::lstrcmpiW(procName.c_str(), L"LINE") == 0; }
-		);
-		return lineFound ? MsgBoxCloseLine() : true;  // Don't care about processes other than LINE and will just shut them down
-	}
-
-	static void CleanUpShadowUninstaller()
-	{
-		const auto exePath = GetExePath();
-		assert(exePath.size() > 0);
-		if (exePath.size() == 0)
-			return;
-
-		constexpr wchar_t* k_emptyAppName = nullptr;
-		constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-		constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-		constexpr BOOL k_noInheritHandles = FALSE;
-		constexpr void* k_useCurrentEnv = nullptr;
-		constexpr wchar_t* k_useCurrentDir = nullptr;
-
-		auto cmdLine =
-			std::wstring{ L"cmd.exe /C timeout /t 5 /nobreak >nul & del \"" }
-			.append(exePath)
-			.append(1, L'"');
-		STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-		PROCESS_INFORMATION procInfo{ };
-		const auto newProcessResult = ::CreateProcessW(
-			k_emptyAppName,
-			cmdLine.data(),
-			k_noProcSecAttr,
-			k_noThrdSecAttr,
-			k_noInheritHandles,
-			NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
-			k_useCurrentEnv,
-			k_useCurrentDir,
-			&k_startupInfo,
-			&procInfo
-		);
-		assert(newProcessResult);
-		if (newProcessResult == FALSE)
-			return;
-
-		::CloseHandle(procInfo.hThread);
-		::CloseHandle(procInfo.hProcess);
 	}
 };
 
