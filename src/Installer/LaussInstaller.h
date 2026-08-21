@@ -18,16 +18,17 @@
 
 #pragma once
 
+#include "Installer.h"
 
-class LaussUninstaller
+
+class LaussInstaller
 {
 public:
 	static void Exec();
 
 private:
-	static bool MsgBoxCloseLine();
+	[[nodiscard]] static bool RunLauncher(const InstallContext& ctx);
 
-	static bool CreateAndRunShadowUninstaller();
-	static bool RestartSessionProcessHandler(auto&& procList);
-	static void CleanUpShadowUninstaller();
+	static void CleanUpFailedFiles(const InstallContext& /*ctx*/)
+	{ };
 };

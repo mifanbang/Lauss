@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
+    <ClCompile Include="..\src\Installer\LaussInstaller.cpp" />
     <ClCompile Include="..\src\Installer\LaussUninstaller.cpp" />
     <ClCompile Include="..\src\Installer\Main.cpp" />
     <ClCompile Include="..\src\Installer\RestartSession.cpp" />
@@ -35,6 +36,7 @@
   <ItemGroup>
     <ClInclude Include="..\src\Installer\Installer.h" />
     <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
+    <ClInclude Include="..\src\Installer\LaussInstaller.h" />
     <ClInclude Include="..\src\Installer\LaussUninstaller.h" />
     <ClInclude Include="..\src\Installer\Resource.h" />
     <ClInclude Include="..\src\Installer\RestartSession.h" />
