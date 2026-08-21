@@ -22,7 +22,7 @@
 #include "InstallerRegistry.h"
 #include "Resource.h"
 
-#include "Utils.h"
+#include <Utils.h>
 
 #include <Gandr/Handle.hpp>
 
@@ -136,6 +136,40 @@ private:
 	}
 };
 
+[[nodiscard]] bool RunLauncher(const InstallContext& ctx)
+{
+	constexpr wchar_t* k_emptyCliArgs = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
+	constexpr BOOL k_noInheritHandles = FALSE;
+	constexpr void* k_useCurrentEnv = nullptr;
+
+	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
+	PROCESS_INFORMATION procInfo{ };
+	const BOOL newProcessResult = ::CreateProcessW(
+		ctx.pathLauncher.c_str(),
+		k_emptyCliArgs,
+		k_noProcSecAttr,
+		k_noThrdSecAttr,
+		k_noInheritHandles,
+		NORMAL_PRIORITY_CLASS,
+		k_useCurrentEnv,
+		ctx.installDir.c_str(),
+		&k_startupInfo,
+		&procInfo
+	);
+	if (newProcessResult == FALSE)
+		return false;
+
+	::CloseHandle(procInfo.hThread);
+	::CloseHandle(procInfo.hProcess);
+	return true;
+}
+
+void CleanUpFailedFiles(const InstallContext& /*ctx*/)
+{};
+
+
 }  // unnamed namespace
 
 
@@ -178,34 +212,4 @@ void LaussInstaller::Exec()
 		// "Critical error: Failed to launch Lauss.\n"
 		return;
 	}
-}
-
-bool LaussInstaller::RunLauncher(const InstallContext& ctx)
-{
-	constexpr wchar_t* k_emptyCliArgs = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const BOOL newProcessResult = ::CreateProcessW(
-		ctx.pathLauncher.c_str(),
-		k_emptyCliArgs,
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS,
-		k_useCurrentEnv,
-		ctx.installDir.c_str(),
-		&k_startupInfo,
-		&procInfo
-	);
-	if (newProcessResult == FALSE)
-		return false;
-
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
-	return true;
 }

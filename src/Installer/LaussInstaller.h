@@ -18,17 +18,9 @@
 
 #pragma once
 
-#include "Installer.h"
-
 
 class LaussInstaller
 {
 public:
 	static void Exec();
-
-private:
-	[[nodiscard]] static bool RunLauncher(const InstallContext& ctx);
-
-	static void CleanUpFailedFiles(const InstallContext& /*ctx*/)
-	{ };
 };

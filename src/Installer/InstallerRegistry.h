@@ -19,7 +19,8 @@
 #pragma once
 
 #include "Installer.h"
-#include "LaussDef.h"
+
+#include <LaussDef.h>
 
 
 class StartUpRegistry

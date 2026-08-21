@@ -18,18 +18,9 @@
 
 #pragma once
 
-#include "RestartSession.h"
-
 
 class LaussUninstaller
 {
 public:
 	static void Exec();
-
-private:
-	static bool MsgBoxCloseLine();
-
-	static bool CreateAndRunShadowUninstaller();
-	static bool RestartSessionProcessHandler(const RestartSession::ProcessList& procList);
-	static void CleanUpShadowUninstaller();
 };

@@ -17,9 +17,10 @@
  */
 
 #include "InstallerRegistry.h"
-#include "LaussDef.h"
-#include "Registry.h"
-#include "Utils.h"
+
+#include <LaussDef.h>
+#include <Registry.h>
+#include <Utils.h>
 
 #include <array>
 #include <string>

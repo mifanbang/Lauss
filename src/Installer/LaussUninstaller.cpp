@@ -22,13 +22,138 @@
 #include "InstallerRegistry.h"
 #include "RestartSession.h"
 
-#include "Utils.h"
+#include <Utils.h>
 
 #include <windows.h>
 #include <commctrl.h>
 
 #include <algorithm>
 #include <cassert>
+
+
+namespace
+{
+
+[[nodiscard]] bool CreateAndRunShadowUninstaller()
+{
+	const auto exePath = GetExePath();
+	assert(exePath.size() > 0);
+	if (exePath.size() == 0)
+		return false;
+
+	const auto tmpFilePath = CreateTempFile();
+	assert(tmpFilePath.size() > 0);
+	if (tmpFilePath.size() == 0)
+		return false;
+
+	constexpr BOOL k_overwrite = FALSE;
+	::CopyFileW(exePath.c_str(), tmpFilePath.c_str(), k_overwrite);
+
+	constexpr wchar_t* k_emptyAppName = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
+	constexpr BOOL k_noInheritHandles = FALSE;
+	constexpr void* k_useCurrentEnv = nullptr;
+	constexpr wchar_t* k_useCurrentDir = nullptr;
+
+	std::wstring cmdLine =
+		AddDoubleQuotes(tmpFilePath)
+		.append(1, L' ')
+		.append(CmdLineOptUninstall());
+	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
+	PROCESS_INFORMATION procInfo{ };
+	const auto newProcessResult = ::CreateProcessW(
+		k_emptyAppName,
+		cmdLine.data(),
+		k_noProcSecAttr,
+		k_noThrdSecAttr,
+		k_noInheritHandles,
+		NORMAL_PRIORITY_CLASS,
+		k_useCurrentEnv,
+		k_useCurrentDir,
+		&k_startupInfo,
+		&procInfo
+	);
+	if (newProcessResult == FALSE)
+		return false;
+
+	::CloseHandle(procInfo.hThread);
+	::CloseHandle(procInfo.hProcess);
+	return true;
+}
+
+[[nodiscard]] bool MsgBoxCloseLine()
+{
+	TASKDIALOGCONFIG config{
+		.cbSize = sizeof(config),
+		.hwndParent = nullptr,
+		.dwFlags = TDF_SIZE_TO_CONTENT,
+		.dwCommonButtons = TDCBF_YES_BUTTON | TDCBF_CLOSE_BUTTON,
+		.pszWindowTitle = L"Lauss Installer",
+		.pszMainIcon = TD_WARNING_ICON,
+		.pszMainInstruction = L"Lauss is running",
+		.pszContent =
+			L"Lauss is currently running inside your LINE app.\n\n"
+			L"To continue with the current operation, LINE is required to shut down.\n\n"
+			L"[YES] to let Lauss shut down LINE for you, or\n"
+			L"[CLOSE] to abort the current operation",
+	};
+
+	int buttonResult{ };
+	::TaskDialogIndirect(&config, &buttonResult, nullptr, nullptr);
+	return buttonResult == IDYES;
+}
+
+[[nodiscard]] bool RestartSessionProcessHandler(const RestartSession::ProcessList& procList)
+{
+	const bool lineFound = std::ranges::any_of(
+		procList,
+		[](const auto& procName) { return ::lstrcmpiW(procName.c_str(), L"LINE") == 0; }
+	);
+	return lineFound ? MsgBoxCloseLine() : true;  // Don't care about processes other than LINE and will just shut them down
+}
+
+void CleanUpShadowUninstaller()
+{
+	const auto exePath = GetExePath();
+	assert(exePath.size() > 0);
+	if (exePath.size() == 0)
+		return;
+
+	constexpr wchar_t* k_emptyAppName = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
+	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
+	constexpr BOOL k_noInheritHandles = FALSE;
+	constexpr void* k_useCurrentEnv = nullptr;
+	constexpr wchar_t* k_useCurrentDir = nullptr;
+
+	auto cmdLine =
+		std::wstring{ L"cmd.exe /C timeout /t 5 /nobreak >nul & del \"" }
+		.append(exePath)
+		.append(1, L'"');
+	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
+	PROCESS_INFORMATION procInfo{ };
+	const auto newProcessResult = ::CreateProcessW(
+		k_emptyAppName,
+		cmdLine.data(),
+		k_noProcSecAttr,
+		k_noThrdSecAttr,
+		k_noInheritHandles,
+		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
+		k_useCurrentEnv,
+		k_useCurrentDir,
+		&k_startupInfo,
+		&procInfo
+	);
+	assert(newProcessResult);
+	if (newProcessResult == FALSE)
+		return;
+
+	::CloseHandle(procInfo.hThread);
+	::CloseHandle(procInfo.hProcess);
+}
+
+}  // unnames namespace
 
 
 void LaussUninstaller::Exec()
@@ -93,123 +218,4 @@ void LaussUninstaller::Exec()
 	[[maybe_unused]] const auto removeRegUninstall = UninstallRegistry::Remove();
 
 	CleanUpShadowUninstaller();
-}
-
-bool LaussUninstaller::CreateAndRunShadowUninstaller()
-{
-	const auto exePath = GetExePath();
-	assert(exePath.size() > 0);
-	if (exePath.size() == 0)
-		return false;
-
-	const auto tmpFilePath = CreateTempFile();
-	assert(tmpFilePath.size() > 0);
-	if (tmpFilePath.size() == 0)
-		return false;
-
-	constexpr BOOL k_overwrite = FALSE;
-	::CopyFileW(exePath.c_str(), tmpFilePath.c_str(), k_overwrite);
-
-	constexpr wchar_t* k_emptyAppName = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-	constexpr wchar_t* k_useCurrentDir = nullptr;
-
-	std::wstring cmdLine =
-		AddDoubleQuotes(tmpFilePath)
-		.append(1, L' ')
-		.append(CmdLineOptUninstall());
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const auto newProcessResult = ::CreateProcessW(
-		k_emptyAppName,
-		cmdLine.data(),
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS,
-		k_useCurrentEnv,
-		k_useCurrentDir,
-		&k_startupInfo,
-		&procInfo
-	);
-	if (newProcessResult == FALSE)
-		return false;
-
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
-	return true;
-}
-
-bool LaussUninstaller::MsgBoxCloseLine()
-{
-	TASKDIALOGCONFIG config{
-		.cbSize = sizeof(config),
-		.hwndParent = nullptr,
-		.dwFlags = TDF_SIZE_TO_CONTENT,
-		.dwCommonButtons = TDCBF_YES_BUTTON | TDCBF_CLOSE_BUTTON,
-		.pszWindowTitle = L"Lauss Installer",
-		.pszMainIcon = TD_WARNING_ICON,
-		.pszMainInstruction = L"Lauss is running",
-		.pszContent =
-			L"Lauss is currently running inside your LINE app.\n\n"
-			L"To continue with the current operation, LINE is required to shut down.\n\n"
-			L"[YES] to let Lauss shut down LINE for you, or\n"
-			L"[CLOSE] to abort the current operation",
-	};
-
-	int buttonResult{ };
-	::TaskDialogIndirect(&config, &buttonResult, nullptr, nullptr);
-	return buttonResult == IDYES;
-}
-
-bool LaussUninstaller::RestartSessionProcessHandler(const RestartSession::ProcessList& procList)
-{
-	const bool lineFound = std::ranges::any_of(
-		procList,
-		[](const auto& procName) { return ::lstrcmpiW(procName.c_str(), L"LINE") == 0; }
-	);
-	return lineFound ? MsgBoxCloseLine() : true;  // Don't care about processes other than LINE and will just shut them down
-}
-
-void LaussUninstaller::CleanUpShadowUninstaller()
-{
-	const auto exePath = GetExePath();
-	assert(exePath.size() > 0);
-	if (exePath.size() == 0)
-		return;
-
-	constexpr wchar_t* k_emptyAppName = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-	constexpr wchar_t* k_useCurrentDir = nullptr;
-
-	auto cmdLine =
-		std::wstring{ L"cmd.exe /C timeout /t 5 /nobreak >nul & del \"" }
-		.append(exePath)
-		.append(1, L'"');
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const auto newProcessResult = ::CreateProcessW(
-		k_emptyAppName,
-		cmdLine.data(),
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS | CREATE_NO_WINDOW,
-		k_useCurrentEnv,
-		k_useCurrentDir,
-		&k_startupInfo,
-		&procInfo
-	);
-	assert(newProcessResult);
-	if (newProcessResult == FALSE)
-		return;
-
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
 }
