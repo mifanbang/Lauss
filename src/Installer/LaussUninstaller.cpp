@@ -110,7 +110,31 @@ namespace
 		procList,
 		[](const auto& procName) { return ::lstrcmpiW(procName.c_str(), L"LINE") == 0; }
 	);
-	return lineFound ? MsgBoxCloseLine() : true;  // Don't care about processes other than LINE and will just shut them down
+
+	// Don't care about processes other than LINE and will just shut them down
+	return lineFound ? MsgBoxCloseLine() : true;
+}
+
+[[nodiscard]] bool RemoveFilesAndDir(const InstallContext& ctx)
+{
+	RestartSession rmSession;
+	assert(rmSession);
+	if (!rmSession)
+		return false;
+
+	const auto procRestartResult = rmSession.RestartProcessesUsingFiles(
+		ctx,
+		[](auto&& arg) { return RestartSessionProcessHandler(arg); }
+	);
+	if (!procRestartResult)
+		return false;
+
+	::DeleteFileW(ctx.pathLauncher.c_str());
+	::DeleteFileW(ctx.pathPayload.c_str());
+	::DeleteFileW(ctx.pathUninstaller.c_str());
+	::RemoveDirectoryW(ctx.installDir.c_str());
+
+	return true;  // Report a success even if file/dir removal fails
 }
 
 void CleanUpShadowUninstaller()
@@ -185,6 +209,10 @@ void LaussUninstaller::Exec()
 		return;
 	}
 
+	// To get here, the current process must be a "shadow uninstaller" run from the image
+	// copied into the user's tmp dir. Therefore we must wait for the parent process, which
+	// is loaded from the image inside installation dir, to terminate first before deleting
+	// its file.
 	WaitOnParentProcess(UninstallerName());
 
 	const auto installCtx = InstallContext::Make(installDir);
@@ -196,26 +224,11 @@ void LaussUninstaller::Exec()
 	}
 
 	// File and directory removal
-	{
-		RestartSession rmSession;
-		assert(rmSession);
-
-		const auto procRestartResult = rmSession.RestartProcessesUsingFiles(
-			installCtx.value(),
-			[](auto&& arg) { return RestartSessionProcessHandler(arg); }
-		);
-		if (!procRestartResult)
-			return;
-
-		::DeleteFileW(installCtx->pathLauncher.c_str());
-		::DeleteFileW(installCtx->pathPayload.c_str());
-		::DeleteFileW(installCtx->pathUninstaller.c_str());
-		::RemoveDirectoryW(installCtx->installDir.c_str());
-	}
+	[[maybe_unused]] const auto filesRemoved = RemoveFilesAndDir(installCtx.value());
 
 	// Registry clean-ups
-	[[maybe_unused]] const auto removeRegStartUp = StartUpRegistry::Remove();
-	[[maybe_unused]] const auto removeRegUninstall = UninstallRegistry::Remove();
+	[[maybe_unused]] const auto regStartUpRemoved = StartUpRegistry::Remove();
+	[[maybe_unused]] const auto regUninstallRemoved = UninstallRegistry::Remove();
 
 	CleanUpShadowUninstaller();
 }
