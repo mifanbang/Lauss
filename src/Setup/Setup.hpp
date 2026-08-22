@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <LaussDef.h>
+#include <LaussDef.hpp>
 
 #include <cassert>
 #include <optional>

@@ -19,6 +19,9 @@
 #pragma once
 
 
+namespace lauss
+{
+
 #define PRODUCT_NAME	L"Lauss"
 
 consteval auto ProductName()
@@ -74,3 +77,5 @@ consteval auto MainWindowClassName()
 {
 	return "AllInOneWindow";
 }
+
+}  // namespace lauss

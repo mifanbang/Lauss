@@ -30,6 +30,7 @@ namespace
 
 using namespace lauss::setup;
 
+
 bool RegisterResources(gan::WinDword handle, const InstallContext& ctx)
 {
 	constexpr unsigned int k_zeroUniqueProcess = 0;

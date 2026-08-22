@@ -18,8 +18,8 @@
 
 #include "Daemon.hpp"
 
-#include <LaussDef.h>
-#include <Utils.h>
+#include <LaussDef.hpp>
+#include <Utils.hpp>
 
 #include <Gandr.hpp>
 
@@ -42,6 +42,7 @@
 namespace
 {
 
+using namespace lauss;
 using namespace lauss::daemon;
 using namespace std::literals;
 

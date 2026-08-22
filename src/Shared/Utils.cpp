@@ -16,9 +16,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Utils.h"
+#include "Utils.hpp"
 
-#include "LaussDef.h"
+#include "LaussDef.hpp"
 
 #include <Gandr/Handle.hpp>
 #include <Gandr/ProcessList.hpp>
@@ -34,6 +34,9 @@
 #include <string>
 #include <string_view>
 
+
+namespace lauss
+{
 
 std::wstring AddDoubleQuotes(std::wstring_view str)
 {
@@ -222,3 +225,5 @@ void WaitOnParentProcess(std::wstring_view parentImage)
 	constexpr gan::WinDword k_waitPeriodMs = 5'000;  // 5 sec
 	::WaitForSingleObject(*hProc, k_waitPeriodMs);
 }
+
+}  // namespace lauss

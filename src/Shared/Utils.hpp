@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "Debug.h"
+#include "Debug.hpp"
 
 #include <Gandr/Types.hpp>
 
@@ -27,6 +27,9 @@
 #include <string>
 #include <string_view>
 
+
+namespace lauss
+{
 
 [[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str);
 
@@ -66,3 +69,5 @@ void Printf([[maybe_unused]] Args... args)
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
 
 void WaitOnParentProcess(std::wstring_view parentImage);
+
+}  // namespace lauss

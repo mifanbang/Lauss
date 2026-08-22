@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Registry.h"
+#include "Registry.hpp"
 
 #include <Gandr/Types.hpp>
 
@@ -26,6 +26,8 @@
 #include <string_view>
 
 
+namespace lauss
+{
 
 RegistryKey::RegistryKey(std::wstring_view name)
 	: m_hKey(nullptr)
@@ -78,3 +80,5 @@ bool RegistryKey::Remove()
 	const auto deleteKeyResult = ::RegDeleteKeyExW(m_hKey, L"", 0, 0);
 	return deleteKeyResult == NO_ERROR;
 }
+
+}  // namespace lauss

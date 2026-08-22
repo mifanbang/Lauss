@@ -29,6 +29,9 @@ struct HKEY__;
 using HKEY = HKEY__*;
 
 
+namespace lauss
+{
+
 class RegistryKey
 {
 public:
@@ -68,3 +71,5 @@ private:
 
 	HKEY m_hKey;
 };
+
+}  // namespace lauss

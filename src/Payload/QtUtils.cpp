@@ -18,10 +18,11 @@
 
 #include "QtUtils.h"
 
-#include "LaussDef.h"
 #include "QtHook.h"
 #include "QtInterface.h"
-#include "Utils.h"
+
+#include <LaussDef.hpp>
+#include <Utils.hpp>
 
 #include <windows.h>
 
@@ -31,6 +32,9 @@
 #include <string>
 #include <vector>
 #include <utility>
+
+
+using namespace lauss;
 
 
 const char* GetQtClassName(const QObject& object)

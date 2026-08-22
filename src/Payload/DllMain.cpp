@@ -16,12 +16,13 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Debug.h"
-#include "LaussDef.h"
 #include "QtHook.h"
 #include "QtInterface.h"
 #include "QtUtils.h"
-#include "Utils.h"
+
+#include <Debug.hpp>
+#include <LaussDef.hpp>
+#include <Utils.hpp>
 
 #include <Gandr/Hook.hpp>
 
@@ -30,6 +31,7 @@
 #include <thread>
 
 
+using namespace lauss;
 using namespace std::literals;
 
 

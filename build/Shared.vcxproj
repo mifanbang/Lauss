@@ -19,14 +19,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\Shared\Debug.h" />
-    <ClInclude Include="..\src\Shared\Registry.h" />
-    <ClInclude Include="..\src\Shared\LaussDef.h" />
-    <ClInclude Include="..\src\Shared\Utils.h" />
-  </ItemGroup>
-  <ItemGroup>
     <ClCompile Include="..\src\Shared\Registry.cpp" />
     <ClCompile Include="..\src\Shared\Utils.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\Shared\Debug.hpp" />
+    <ClInclude Include="..\src\Shared\LaussDef.hpp" />
+    <ClInclude Include="..\src\Shared\Registry.hpp" />
+    <ClInclude Include="..\src\Shared\Utils.hpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

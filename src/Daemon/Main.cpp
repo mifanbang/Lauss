@@ -18,14 +18,14 @@
 
 #include "Daemon.hpp"
 
-#include <Debug.h>
+#include <Debug.hpp>
 
 #include <windows.h>
 
 
 int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
-	if constexpr (UseDebugConsole())
+	if constexpr (lauss::UseDebugConsole())
 	{
 		::AllocConsole();
 	}

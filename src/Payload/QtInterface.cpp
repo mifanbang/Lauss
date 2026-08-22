@@ -18,9 +18,12 @@
 
 #include "QtInterface.h"
 
-#include "Utils.h"
+#include <Utils.hpp>
 
 #include <Gandr/DllLookup.hpp>
+
+
+using namespace lauss;
 
 
 std::vector<std::string> DynamicImports::s_unresolved;

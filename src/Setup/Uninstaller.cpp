@@ -21,7 +21,7 @@
 #include "SetupRegistries.hpp"
 #include "RestartSession.hpp"
 
-#include <Utils.h>
+#include <Utils.hpp>
 
 #include <windows.h>
 #include <commctrl.h>
@@ -33,6 +33,7 @@
 namespace
 {
 
+using namespace lauss;
 using namespace lauss::setup;
 
 

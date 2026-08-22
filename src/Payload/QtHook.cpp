@@ -16,11 +16,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Debug.h"
-#include "LaussDef.h"
 #include "QtHook.h"
 #include "QtInterface.h"
 #include "QtUtils.h"
+
+#include <Debug.hpp>
+#include <LaussDef.hpp>
 
 #include <windows.h>
 
@@ -32,6 +33,7 @@
 
 namespace {
 
+using namespace lauss;
 
 void HandleWidgetShowHook(QWidget& widget)
 {

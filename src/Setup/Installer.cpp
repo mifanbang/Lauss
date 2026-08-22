@@ -21,7 +21,7 @@
 #include "Resource.h"
 #include "SetupRegistries.hpp"
 
-#include <Utils.h>
+#include <Utils.hpp>
 
 #include <Gandr/Handle.hpp>
 
@@ -35,6 +35,7 @@
 namespace
 {
 
+using namespace lauss;
 using namespace lauss::setup;
 
 

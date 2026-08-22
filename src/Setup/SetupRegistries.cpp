@@ -18,9 +18,9 @@
 
 #include "SetupRegistries.hpp"
 
-#include <LaussDef.h>
-#include <Registry.h>
-#include <Utils.h>
+#include <LaussDef.hpp>
+#include <Registry.hpp>
+#include <Utils.hpp>
 
 #include <array>
 #include <string>

@@ -20,7 +20,7 @@
 
 #include "Setup.hpp"
 
-#include <LaussDef.h>
+#include <LaussDef.hpp>
 
 
 namespace lauss::setup

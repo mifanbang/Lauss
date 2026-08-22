@@ -18,8 +18,8 @@
 
 #include "Setup.hpp"
 
-#include <LaussDef.h>
-#include <Utils.h>
+#include <LaussDef.hpp>
+#include <Utils.hpp>
 
 #include <windows.h>
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
@@ -29,9 +29,9 @@
 
 int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
-	const auto args = GetCmdLineArgs();
+	const auto args = lauss::GetCmdLineArgs();
 
-	const auto installDir = GetInstallationDir();
+	const auto installDir = lauss::GetInstallationDir();
 	assert(installDir.size() > 0);
 	if (installDir.size() == 0)
 	{
@@ -48,7 +48,7 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 	}
 
 	if (args.size() > 1
-		&& ::lstrcmpiW(args[1].c_str(), CmdLineOptUninstall()) == 0)
+		&& ::lstrcmpiW(args[1].c_str(), lauss::CmdLineOptUninstall()) == 0)
 	{
 		lauss::setup::Uninstall(installCtx.value());
 	}

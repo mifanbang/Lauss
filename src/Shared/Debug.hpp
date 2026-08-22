@@ -19,6 +19,9 @@
 #pragma once
 
 
+namespace lauss
+{
+
 consteval bool IsDebugBuild()
 {
 #if defined(_DEBUG)
@@ -32,3 +35,5 @@ consteval bool UseDebugConsole()
 {
 	return IsDebugBuild();
 }
+
+}  // namespace lauss
