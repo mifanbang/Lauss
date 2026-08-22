@@ -28,6 +28,8 @@
 namespace
 {
 
+using namespace lauss::setup;
+
 bool RegisterResources(gan::WinDword handle, const InstallContext& ctx)
 {
 	constexpr unsigned int k_zeroUniqueProcess = 0;
@@ -76,6 +78,9 @@ std::optional<RestartSession::ProcessList> GetProcessList(gan::WinDword handle)
 }  // unnamed namespace
 
 
+namespace lauss::setup
+{
+
 RestartSession::RestartSession()
 {
 	constexpr gan::WinDword k_noFlags = 0;
@@ -110,3 +115,5 @@ bool RestartSession::RestartProcesses()
 
 	return restartResult == NO_ERROR;
 }
+
+}  // namespace lauss::setup

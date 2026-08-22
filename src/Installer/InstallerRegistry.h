@@ -23,6 +23,9 @@
 #include <LaussDef.h>
 
 
+namespace lauss::setup
+{
+
 class StartUpRegistry
 {
 public:
@@ -34,7 +37,6 @@ private:
 	constexpr static auto k_subkeyLauss = ProductName();
 };
 
-
 class UninstallRegistry
 {
 public:
@@ -44,3 +46,5 @@ public:
 private:
 	constexpr static auto k_keyPath = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\" PRODUCT_NAME;
 };
+
+}  // namespace lauss::setup

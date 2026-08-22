@@ -16,6 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "Installer.h"
 #include "LaussInstaller.h"
 #include "LaussUninstaller.h"
 
@@ -30,14 +31,31 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 {
 	const auto args = GetCmdLineArgs();
 
-	if (args.size() > 1 && ::lstrcmpiW(args[1].c_str(), CmdLineOptUninstall()) == 0)
+	const auto installDir = GetInstallationDir();
+	assert(installDir.size() > 0);
+	if (installDir.size() == 0)
 	{
-		LaussUninstaller::Exec();
+		// "Critical error: Failed to obtain install path.\n";
+		return -1;
+	}
+
+	const auto installCtx = lauss::setup::InstallContext::Make(installDir);
+	assert(installCtx);
+	if (!installCtx)
+	{
+		// "Critical error: Failed to generate install context.\n"
+		return -1;
+	}
+
+	if (args.size() > 1
+		&& ::lstrcmpiW(args[1].c_str(), CmdLineOptUninstall()) == 0)
+	{
+		lauss::setup::Uninstall(installCtx.value());
 	}
 	else
 	{
 		// TODO: Detect previous installation
-		LaussInstaller::Exec();
+		lauss::setup::Install(installCtx.value());
 	}
 
 	return NO_ERROR;

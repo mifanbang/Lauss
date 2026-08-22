@@ -30,6 +30,9 @@
 using namespace std::literals;
 
 
+namespace lauss::setup
+{
+
 bool StartUpRegistry::Create(const InstallContext& ctx)
 {
 	RegistryKey regKey{ k_keyPath };
@@ -93,3 +96,5 @@ bool UninstallRegistry::Remove()
 
 	return regKey.Remove();
 }
+
+}  // namespace lauss::setup

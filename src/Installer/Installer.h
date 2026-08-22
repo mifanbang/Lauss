@@ -25,6 +25,9 @@
 #include <string>
 
 
+namespace lauss::setup
+{
+
 struct InstallContext
 {
 	const std::wstring installDir;
@@ -47,3 +50,12 @@ struct InstallContext
 		);
 	}
 };
+
+
+void Install(const InstallContext& ctx);
+
+void Uninstall(const InstallContext& ctx);
+
+[[nodiscard]] bool UninstallerExists(const InstallContext& ctx);
+
+}  // namespace lauss::setup

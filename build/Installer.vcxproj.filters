@@ -4,8 +4,8 @@
     <ClCompile Include="..\src\Installer\Main.cpp" />
     <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
     <ClCompile Include="..\src\Installer\RestartSession.cpp" />
-    <ClCompile Include="..\src\Installer\LaussUninstaller.cpp" />
-    <ClCompile Include="..\src\Installer\LaussInstaller.cpp" />
+    <ClCompile Include="..\src\Installer\Installer.cpp" />
+    <ClCompile Include="..\src\Installer\Uninstaller.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\Installer\Resource.rc" />
@@ -15,7 +15,5 @@
     <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
     <ClInclude Include="..\src\Installer\Installer.h" />
     <ClInclude Include="..\src\Installer\RestartSession.h" />
-    <ClInclude Include="..\src\Installer\LaussUninstaller.h" />
-    <ClInclude Include="..\src\Installer\LaussInstaller.h" />
   </ItemGroup>
 </Project>

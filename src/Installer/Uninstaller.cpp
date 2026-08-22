@@ -34,6 +34,7 @@
 namespace
 {
 
+using namespace lauss::setup;
 
 // Per API's doc, `cmdline` must not be const.
 [[nodiscard]] bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
@@ -172,7 +173,10 @@ void CleanUpShadowUninstaller()
 }  // unnames namespace
 
 
-void LaussUninstaller::Exec()
+namespace lauss::setup
+{
+
+void Uninstall(const InstallContext& ctx)
 {
 	const auto exeDir = GetExeDir();
 	assert(exeDir.size() > 0);
@@ -182,15 +186,7 @@ void LaussUninstaller::Exec()
 		return;
 	}
 
-	const auto installDir = GetInstallationDir();
-	assert(installDir.size() > 0);
-	if (installDir.size() == 0)
-	{
-		// "Critical error: Failed to obtain install path.\n";
-		return;
-	}
-
-	if (::lstrcmpiW(exeDir.c_str(), installDir.c_str()) == 0)
+	if (::lstrcmpiW(exeDir.c_str(), ctx.installDir.c_str()) == 0)
 	{
 		const auto runShadowResult = CreateAndRunShadowUninstaller();
 		assert(runShadowResult);
@@ -207,16 +203,8 @@ void LaussUninstaller::Exec()
 	// its file.
 	WaitOnParentProcess(UninstallerName());
 
-	const auto installCtx = InstallContext::Make(installDir);
-	assert(installCtx);
-	if (!installCtx)
-	{
-		// "Critical error: Failed to generate install context.\n"
-		return;
-	}
-
 	// File and directory removal
-	const auto filesRemoved = RemoveFilesAndDir(installCtx.value());
+	const auto filesRemoved = RemoveFilesAndDir(ctx);
 	if (!filesRemoved)
 		return;
 
@@ -226,3 +214,5 @@ void LaussUninstaller::Exec()
 
 	CleanUpShadowUninstaller();
 }
+
+}  // namespace lauss::setup

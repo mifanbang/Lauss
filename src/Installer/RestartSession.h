@@ -27,6 +27,9 @@
 #include <vector>
 
 
+namespace lauss::setup
+{
+
 class RestartSession
 {
 public:
@@ -69,3 +72,5 @@ private:
 	gan::WinDword m_handle{ };
 	SessionKey m_sessionKey{ };
 };
+
+}  // namespace lauss::setup

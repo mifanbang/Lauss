@@ -36,6 +36,9 @@
 namespace
 {
 
+using namespace lauss::setup;
+
+
 class InstallHelper
 {
 public:
@@ -48,8 +51,8 @@ public:
 	{
 		// Unpack files from resource section
 		constexpr std::array<PackedItem, 2> k_items{ {
-			{ .resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
-			{ .resName = PAYLOAD,	.path = &InstallContext::pathPayload }
+			{.resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
+			{.resName = PAYLOAD,	.path = &InstallContext::pathPayload }
 		} };
 		for (const auto& item : k_items)
 		{
@@ -169,43 +172,29 @@ private:
 void CleanUpFailedFiles(const InstallContext& /*ctx*/)
 {};
 
-
 }  // unnamed namespace
 
 
-void LaussInstaller::Exec()
+namespace lauss::setup
 {
-	const auto installDir = GetInstallationDir();
-	assert(installDir.size() > 0);
-	if (installDir.size() == 0)
-	{
-		// "Critical error: Failed to obtain install path.\n";
-		return;
-	}
 
-	const auto installCtx = InstallContext::Make(installDir);
-	assert(installCtx);
-	if (!installCtx)
-	{
-		// "Critical error: Failed to generate install context.\n"
-		return;
-	}
+void Install(const InstallContext& ctx)
+{
+	[[maybe_unused]] const auto createPathResult = CreateDirRecursively(ctx.installDir);
 
-	[[maybe_unused]] const auto createPathResult = CreateDirRecursively(installDir);
-
-	const auto installResult = InstallHelper::Install(installCtx.value());
+	const auto installResult = InstallHelper::Install(ctx);
 	assert(installResult);
 	if (!installResult)
 	{
 		// "Critical error: Failed to install files.\n"
-		CleanUpFailedFiles(installCtx.value());
+		CleanUpFailedFiles(ctx);
 		return;
 	}
 
-	[[maybe_unused]] const auto createRegStartUp = StartUpRegistry::Create(installCtx.value());
-	[[maybe_unused]] const auto createRegUninstall = UninstallRegistry::Create(installCtx.value());
+	[[maybe_unused]] const auto createRegStartUp = StartUpRegistry::Create(ctx);
+	[[maybe_unused]] const auto createRegUninstall = UninstallRegistry::Create(ctx);
 
-	const auto launchResult = RunLauncher(installCtx.value());
+	const auto launchResult = RunLauncher(ctx);
 	assert(launchResult);
 	if (!launchResult)
 	{
@@ -213,3 +202,5 @@ void LaussInstaller::Exec()
 		return;
 	}
 }
+
+}  // namespace lauss::setup
