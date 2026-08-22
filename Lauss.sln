@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.9.12105.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Launcher", "build\Launcher.vcxproj", "{096471ED-8F88-409F-911F-5D3B8B67F968}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Daemon", "build\Daemon.vcxproj", "{096471ED-8F88-409F-911F-5D3B8B67F968}"
 	ProjectSection(ProjectDependencies) = postProject
 		{281A2305-4F9A-4C0D-BBB0-B36F20874653} = {281A2305-4F9A-4C0D-BBB0-B36F20874653}
 		{B7777100-6808-41CF-A457-07D735101697} = {B7777100-6808-41CF-A457-07D735101697}
