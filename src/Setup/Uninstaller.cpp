@@ -16,11 +16,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "LaussUninstaller.h"
+#include "Setup.hpp"
 
-#include "Installer.h"
-#include "InstallerRegistry.h"
-#include "RestartSession.h"
+#include "SetupRegistries.hpp"
+#include "RestartSession.hpp"
 
 #include <Utils.h>
 

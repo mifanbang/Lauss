@@ -16,11 +16,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "LaussInstaller.h"
+#include "Setup.hpp"
 
-#include "Installer.h"
-#include "InstallerRegistry.h"
 #include "Resource.h"
+#include "SetupRegistries.hpp"
 
 #include <Utils.h>
 

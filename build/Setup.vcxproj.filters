@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\src\Setup\Installer.cpp" />
+    <ClCompile Include="..\src\Setup\SetupRegistries.cpp" />
+    <ClCompile Include="..\src\Setup\Main.cpp" />
+    <ClCompile Include="..\src\Setup\RestartSession.cpp" />
+    <ClCompile Include="..\src\Setup\Uninstaller.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\Setup\Resource.h" />
+    <ClInclude Include="..\src\Setup\RestartSession.hpp" />
+    <ClInclude Include="..\src\Setup\Setup.hpp" />
+    <ClInclude Include="..\src\Setup\SetupRegistries.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\Setup\Resource.rc" />
+  </ItemGroup>
+</Project>

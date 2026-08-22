@@ -19,31 +19,31 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\Installer\InstallerRegistry.cpp" />
-    <ClCompile Include="..\src\Installer\Installer.cpp" />
-    <ClCompile Include="..\src\Installer\Uninstaller.cpp" />
-    <ClCompile Include="..\src\Installer\Main.cpp" />
-    <ClCompile Include="..\src\Installer\RestartSession.cpp" />
+    <ClCompile Include="..\src\Setup\Installer.cpp" />
+    <ClCompile Include="..\src\Setup\SetupRegistries.cpp" />
+    <ClCompile Include="..\src\Setup\Main.cpp" />
+    <ClCompile Include="..\src\Setup\RestartSession.cpp" />
+    <ClCompile Include="..\src\Setup\Uninstaller.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="..\src\Installer\Resource.rc">
+    <ClInclude Include="..\src\Setup\Resource.h" />
+    <ClInclude Include="..\src\Setup\RestartSession.hpp" />
+    <ClInclude Include="..\src\Setup\Setup.hpp" />
+    <ClInclude Include="..\src\Setup\SetupRegistries.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="..\src\Setup\Resource.rc">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(OutDir)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(OutDir)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(OutDir)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(OutDir)</AdditionalIncludeDirectories>
     </ResourceCompile>
   </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\src\Installer\Installer.h" />
-    <ClInclude Include="..\src\Installer\InstallerRegistry.h" />
-    <ClInclude Include="..\src\Installer\Resource.h" />
-    <ClInclude Include="..\src\Installer\RestartSession.h" />
-  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{E062DE78-6F5F-BA2E-297F-9F5A7464288D}</ProjectGuid>
-    <RootNamespace>Installer</RootNamespace>
+    <RootNamespace>Setup</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

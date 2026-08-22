@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "InstallerRegistry.h"
+#include "SetupRegistries.hpp"
 
 #include <LaussDef.h>
 #include <Registry.h>

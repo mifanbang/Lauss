@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "RestartSession.h"
+#include "RestartSession.hpp"
 
 #include <windows.h>
 #include <restartmanager.h>
