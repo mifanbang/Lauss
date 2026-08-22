@@ -21,7 +21,6 @@
 #include "LaussDef.hpp"
 
 #include <Gandr/Handle.hpp>
-#include <Gandr/ProcessList.hpp>
 #include <Gandr/Types.hpp>
 
 #include <windows.h>
@@ -150,7 +149,23 @@ std::wstring CreateTempFile()
 	return { filePath.data() };
 }
 
-bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
+bool IsFileReadable(std::wstring_view path)
+{
+	constexpr LPSECURITY_ATTRIBUTES k_noSecAttr = nullptr;
+	constexpr HANDLE k_noTempFile = nullptr;
+	gan::AutoWinHandle hFile { ::CreateFileW(
+		path.data(),
+		GENERIC_READ,
+		FILE_SHARE_READ,
+		k_noSecAttr,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		k_noTempFile
+	) };
+	return static_cast<bool>(hFile);
+}
+
+std::optional<CreatedProcess> CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
 {
 	constexpr wchar_t* k_emptyAppName = nullptr;
 	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
@@ -176,11 +191,12 @@ bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
 
 	if (newProcessResult != FALSE)
 	{
-		::CloseHandle(procInfo.hThread);
-		::CloseHandle(procInfo.hProcess);
-		return true;
+		return std::make_optional<CreatedProcess>(
+			gan::AutoWinHandle{ procInfo.hProcess },
+			gan::AutoWinHandle{ procInfo.hThread }
+		);
 	}
-	return false;
+	return std::nullopt;
 }
 
 std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
@@ -193,37 +209,18 @@ std::optional<bool> IsProcessStillAlive(gan::WinHandle proc)
 		: std::nullopt;
 }
 
-void WaitOnParentProcess(std::wstring_view parentImage)
+std::optional<gan::WinDword> WaitOnProcess(gan::WinHandle process, std::optional<std::chrono::milliseconds> timeout)
 {
-	const auto processList = gan::ProcessEnumerator{}();
-	assert(processList);
-	if (!processList)
-		return;
-
-	const uint32_t currPid = ::GetCurrentProcessId();
-	const auto currProcessInfo = std::ranges::find(processList.value(), currPid, &gan::ProcessInfo::pid);
-	assert(currProcessInfo != processList->end());
-	if (currProcessInfo == processList->end())
-		return;
-
-	if (!parentImage.empty())
+	const auto waitDuration = timeout
+		? static_cast<gan::WinDword>(timeout.value().count())
+		: INFINITE;
+	if (::WaitForSingleObject(process, waitDuration) == WAIT_OBJECT_0)
 	{
-		const auto parentProcessInfo = std::ranges::find(processList.value(), currProcessInfo->pidParent, &gan::ProcessInfo::pid);
-		if (parentProcessInfo == processList->end()
-			|| ::lstrcmpiW(parentProcessInfo->imageName.c_str(), parentImage.data()) != 0)
-		{
-			return;
-		}
+		gan::WinDword exitCode{ };
+		if (::GetExitCodeProcess(process, &exitCode) != FALSE)
+			return std::make_optional(exitCode);
 	}
-
-	constexpr BOOL k_nonInheritable = FALSE;
-	gan::AutoWinHandle hProc{ ::OpenProcess(SYNCHRONIZE, k_nonInheritable, currProcessInfo->pidParent) };
-	assert(hProc);
-	if (!hProc)
-		return;
-
-	constexpr gan::WinDword k_waitPeriodMs = 5'000;  // 5 sec
-	::WaitForSingleObject(*hProc, k_waitPeriodMs);
+	return std::nullopt;
 }
 
 }  // namespace lauss

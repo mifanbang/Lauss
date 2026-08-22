@@ -23,11 +23,15 @@
 
 #include <Utils.hpp>
 
+#include <Gandr/ProcessList.hpp>
+
 #include <windows.h>
 #include <commctrl.h>
 
 #include <algorithm>
 #include <cassert>
+#include <chrono>
+#include <string_view>
 
 
 namespace
@@ -35,6 +39,7 @@ namespace
 
 using namespace lauss;
 using namespace lauss::setup;
+using namespace std::literals;
 
 
 [[nodiscard]] bool CreateAndRunShadowUninstaller()
@@ -96,6 +101,39 @@ using namespace lauss::setup;
 
 	// Don't care about processes other than LINE and will just shut them down
 	return lineFound ? MsgBoxCloseLine() : true;
+}
+
+void WaitOnParentProcess(std::wstring_view parentImage)
+{
+	const auto processList = gan::ProcessEnumerator{}();
+	assert(processList);
+	if (!processList)
+		return;
+
+	const uint32_t currPid = ::GetCurrentProcessId();
+	const auto currProcessInfo = std::ranges::find(processList.value(), currPid, &gan::ProcessInfo::pid);
+	assert(currProcessInfo != processList->end());
+	if (currProcessInfo == processList->end())
+		return;
+
+	if (!parentImage.empty())
+	{
+		const auto parentProcessInfo = std::ranges::find(processList.value(), currProcessInfo->pidParent, &gan::ProcessInfo::pid);
+		if (parentProcessInfo == processList->end()
+			|| ::lstrcmpiW(parentProcessInfo->imageName.c_str(), parentImage.data()) != 0)
+		{
+			return;
+		}
+	}
+
+	constexpr BOOL k_nonInheritable = FALSE;
+	gan::AutoWinHandle hProc{ ::OpenProcess(SYNCHRONIZE, k_nonInheritable, currProcessInfo->pidParent) };
+	assert(hProc);
+	if (!hProc)
+		return;
+
+	constexpr auto k_waitDuration = 5s;
+	WaitOnProcess(*hProc, k_waitDuration);
 }
 
 [[nodiscard]] bool RemoveFilesAndDir(const InstallContext& ctx)

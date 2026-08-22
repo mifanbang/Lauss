@@ -56,6 +56,4 @@ void Install(const InstallContext& ctx);
 
 void Uninstall(const InstallContext& ctx);
 
-[[nodiscard]] bool UninstallerExists(const InstallContext& ctx);
-
 }  // namespace lauss::setup

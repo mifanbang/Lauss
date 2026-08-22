@@ -21,10 +21,119 @@
 #include <LaussDef.hpp>
 #include <Utils.hpp>
 
+#include <Gandr/Types.hpp>
+
 #include <windows.h>
 #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include <cassert>
+#include <string_view>
+
+
+using namespace std::literals;
+
+
+namespace
+{
+
+// Ref: Chen, R. (2013). "How do I wait until all processes in a job have exited?"
+//      https://devblogs.microsoft.com/oldnewthing/20130405-00/?p=4743
+class JobObject
+{
+public:
+	JobObject()
+	{
+		constexpr LPSECURITY_ATTRIBUTES k_noSecAttr = nullptr;
+		constexpr const wchar_t* k_nameless = nullptr;
+		m_hJob = gan::AutoWinHandle{ ::CreateJobObjectW(k_noSecAttr, k_nameless) };
+
+		constexpr HANDLE k_noExistingPort = nullptr;
+		constexpr uintptr_t k_noCompletionKey = 0;
+		constexpr gan::WinDword k_numThreads = 1;
+		m_hPort = gan::AutoWinHandle{ ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, k_noExistingPort, k_noCompletionKey, k_numThreads) };
+
+		if (m_hJob && m_hPort)
+		{
+			JOBOBJECT_ASSOCIATE_COMPLETION_PORT port{ .CompletionKey = *m_hJob, .CompletionPort = *m_hPort };
+			const auto setResult = ::SetInformationJobObject(
+				*m_hJob,
+				JobObjectAssociateCompletionPortInformation,
+				&port,
+				static_cast<gan::WinDword>(sizeof(port))
+			);
+			m_fullyInit = (setResult != FALSE);
+		}
+	}
+	bool SetProcess(gan::WinHandle process)
+	{
+		assert(operator bool());
+		if (!operator bool())
+			return false;
+
+		return (::AssignProcessToJobObject(*m_hJob, process) != FALSE);
+	}
+	void Wait()
+	{
+		assert(operator bool());
+		if (!operator bool())
+			return;
+
+		gan::WinDword completionCode{ };
+		uintptr_t completionKey{ };
+		LPOVERLAPPED overlapped{ };
+		while (::GetQueuedCompletionStatus(*m_hPort, &completionCode, &completionKey, &overlapped, INFINITE) != FALSE)
+		{
+			if (completionKey == reinterpret_cast<uintptr_t>(*m_hJob)
+				&& completionCode == JOB_OBJECT_MSG_ACTIVE_PROCESS_ZERO)
+			{
+				break;
+			}
+		}
+	}
+	operator bool() const
+	{
+		return m_fullyInit;
+	}
+
+private:
+	gan::AutoWinHandle m_hJob{ };
+	gan::AutoWinHandle m_hPort{ };
+	bool m_fullyInit{ false };
+};
+
+
+[[nodiscard]] bool LaunchExistingUninstaller(std::wstring_view uninstallerPath)
+{
+	auto cmdLine =
+		lauss::AddDoubleQuotes(uninstallerPath)
+		.append(1, L' ')
+		.append(lauss::CmdLineOptUninstall());
+	auto uninstallerProcess = lauss::CreateProcessWithCommand(cmdLine, CREATE_SUSPENDED);
+	assert(uninstallerProcess);
+	if (!uninstallerProcess)
+		return false;
+
+	gan::Deferred killSuspendedProcess{ [process=*uninstallerProcess->process](){
+		::TerminateProcess(process, NO_ERROR);
+	} };
+	{
+		JobObject job;
+		assert(job);
+		if (!job)
+			return false;
+
+		const auto setProcessResult = job.SetProcess(*uninstallerProcess->process);
+		assert(setProcessResult);
+		if (!setProcessResult)
+			return false;
+
+		::ResumeThread(*uninstallerProcess->thread);
+		job.Wait();
+	}
+	return true;
+}
+
+}  // unnamed namespace
 
 
 int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
@@ -54,8 +163,15 @@ int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
 	}
 	else
 	{
-		// TODO: Detect previous installation
-		lauss::setup::Install(installCtx.value());
+		if (lauss::IsFileReadable(installCtx->pathUninstaller)
+			&& !LaunchExistingUninstaller(installCtx->pathUninstaller))
+		{
+			// "Critical error: Failed to run uninstaller of the previous installation.\n"
+			return -1;
+		}
+
+		if (!lauss::IsFileReadable(installCtx->pathUninstaller))
+			lauss::setup::Install(installCtx.value());
 	}
 
 	return NO_ERROR;

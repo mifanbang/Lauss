@@ -143,7 +143,7 @@ private:
 {
 	constexpr gan::WinDword k_noFlags = 0;
 	auto cmdLine = AddDoubleQuotes(ctx.pathLauncher);
-	return CreateProcessWithCommand(cmdLine, k_noFlags);
+	return CreateProcessWithCommand(cmdLine, k_noFlags).has_value();
 }
 
 void CleanUpFailedFiles(const InstallContext& /*ctx*/)

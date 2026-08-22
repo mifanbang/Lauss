@@ -20,18 +20,23 @@
 
 #include "Debug.hpp"
 
+#include <Gandr/Handle.hpp>
 #include <Gandr/Types.hpp>
 
 #include <cstdio>
 
+#include <chrono>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 
 namespace lauss
 {
 
 [[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str);
+
 
 void PrintConsole(std::string_view msg);
 
@@ -45,6 +50,7 @@ void Printf([[maybe_unused]] Args... args)
 		PrintConsole({ buffer });
 	}
 }
+
 
 [[nodiscard]] std::vector<std::wstring> GetCmdLineArgs();
 
@@ -62,12 +68,20 @@ void Printf([[maybe_unused]] Args... args)
 
 [[nodiscard]] std::wstring CreateTempFile();
 
+[[nodiscard]] bool IsFileReadable(std::wstring_view path);
+
 
 // Per API's doc, `cmdline` must not be const.
-[[nodiscard]] bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag);
+struct CreatedProcess
+{
+	gan::AutoWinHandle process;
+	gan::AutoWinHandle thread;
+};
+[[nodiscard]] std::optional<CreatedProcess> CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag);
 
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
 
-void WaitOnParentProcess(std::wstring_view parentImage);
+// Returns std::nullopt when timed out or an error occurred
+std::optional<gan::WinDword> WaitOnProcess(gan::WinHandle process, std::optional<std::chrono::milliseconds> timeout);
 
 }  // namespace lauss
