@@ -138,38 +138,17 @@ private:
 	}
 };
 
-[[nodiscard]] bool RunLauncher(const InstallContext& ctx)
+[[nodiscard]] bool LaunchDaemon(const InstallContext& ctx)
 {
-	constexpr wchar_t* k_emptyCliArgs = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const BOOL newProcessResult = ::CreateProcessW(
-		ctx.pathLauncher.c_str(),
-		k_emptyCliArgs,
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS,
-		k_useCurrentEnv,
-		ctx.installDir.c_str(),
-		&k_startupInfo,
-		&procInfo
-	);
-	if (newProcessResult == FALSE)
-		return false;
-
-	::CloseHandle(procInfo.hThread);
-	::CloseHandle(procInfo.hProcess);
-	return true;
+	constexpr gan::WinDword k_noFlags = 0;
+	auto cmdLine = AddDoubleQuotes(ctx.pathLauncher);
+	return CreateProcessWithCommand(cmdLine, k_noFlags);
 }
 
 void CleanUpFailedFiles(const InstallContext& /*ctx*/)
-{};
+{
+	// TODO
+};
 
 }  // unnamed namespace
 
@@ -193,7 +172,7 @@ void Install(const InstallContext& ctx)
 	[[maybe_unused]] const auto createRegStartUp = StartUpRegistry::Create(ctx);
 	[[maybe_unused]] const auto createRegUninstall = UninstallRegistry::Create(ctx);
 
-	const auto launchResult = RunLauncher(ctx);
+	const auto launchResult = LaunchDaemon(ctx);
 	assert(launchResult);
 	if (!launchResult)
 	{

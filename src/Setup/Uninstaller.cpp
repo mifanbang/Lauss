@@ -35,39 +35,6 @@ namespace
 
 using namespace lauss::setup;
 
-// Per API's doc, `cmdline` must not be const.
-[[nodiscard]] bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag)
-{
-	constexpr wchar_t* k_emptyAppName = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noProcSecAttr = nullptr;
-	constexpr LPSECURITY_ATTRIBUTES k_noThrdSecAttr = nullptr;
-	constexpr BOOL k_noInheritHandles = FALSE;
-	constexpr void* k_useCurrentEnv = nullptr;
-	constexpr wchar_t* k_useCurrentDir = nullptr;
-
-	STARTUPINFOW k_startupInfo{ .cb = sizeof(k_startupInfo) };
-	PROCESS_INFORMATION procInfo{ };
-	const auto newProcessResult = ::CreateProcessW(
-		k_emptyAppName,
-		cmdline.data(),
-		k_noProcSecAttr,
-		k_noThrdSecAttr,
-		k_noInheritHandles,
-		NORMAL_PRIORITY_CLASS | flag,
-		k_useCurrentEnv,
-		k_useCurrentDir,
-		&k_startupInfo,
-		&procInfo
-	);
-
-	if (newProcessResult != FALSE)
-	{
-		::CloseHandle(procInfo.hThread);
-		::CloseHandle(procInfo.hProcess);
-		return true;
-	}
-	return false;
-}
 
 [[nodiscard]] bool CreateAndRunShadowUninstaller()
 {

@@ -54,9 +54,14 @@ void Printf([[maybe_unused]] Args... args)
 // Inclusive of the trailing `\\`
 [[nodiscard]] std::wstring GetInstallationDir();
 
+
 [[nodiscard]] bool CreateDirRecursively(std::wstring_view path);
 
 [[nodiscard]] std::wstring CreateTempFile();
+
+
+// Per API's doc, `cmdline` must not be const.
+[[nodiscard]] bool CreateProcessWithCommand(std::wstring& cmdline, gan::WinDword flag);
 
 [[nodiscard]] std::optional<bool> IsProcessStillAlive(gan::WinHandle proc);
 
