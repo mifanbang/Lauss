@@ -2,5 +2,9 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="..\src\Daemon\Main.cpp" />
+    <ClCompile Include="..\src\Daemon\Daemon.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\Daemon\Daemon.hpp" />
   </ItemGroup>
 </Project>

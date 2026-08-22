@@ -16,20 +16,12 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "Daemon.hpp"
-
-#include <Debug.h>
-
-#include <windows.h>
+#pragma once
 
 
-int WINAPI wWinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ wchar_t*, _In_ int)
+namespace lauss::daemon
 {
-	if constexpr (UseDebugConsole())
-	{
-		::AllocConsole();
-	}
 
-	lauss::daemon::ExecMainLoop();
-	return NO_ERROR;
-}
+void ExecMainLoop();
+
+}  // namespace lauss::daemon
