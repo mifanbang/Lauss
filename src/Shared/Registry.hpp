@@ -40,9 +40,10 @@ public:
 		String = 1
 	};
 
-	RegistryKey(std::wstring_view name);
+	explicit RegistryKey(std::wstring_view name);
 	~RegistryKey();
 
+	RegistryKey() = delete;
 	RegistryKey(const RegistryKey&) = delete;
 	RegistryKey(RegistryKey&&) = delete;
 	RegistryKey& operator=(const RegistryKey&) = delete;
