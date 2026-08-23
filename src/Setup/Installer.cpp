@@ -51,8 +51,8 @@ public:
 	{
 		// Unpack files from resource section
 		constexpr std::array<PackedItem, 2> k_items{ {
-			{.resName = LAUNCHER,	.path = &InstallContext::pathLauncher },
-			{.resName = PAYLOAD,	.path = &InstallContext::pathPayload }
+			{.resName = DAEMON,	 .path = &InstallContext::pathDaemon },
+			{.resName = PAYLOAD, .path = &InstallContext::pathPayload }
 		} };
 		for (const auto& item : k_items)
 		{
@@ -142,7 +142,7 @@ private:
 [[nodiscard]] bool LaunchDaemon(const InstallContext& ctx)
 {
 	constexpr gan::WinDword k_noFlags = 0;
-	auto cmdLine = AddDoubleQuotes(ctx.pathLauncher);
+	auto cmdLine = AddDoubleQuotes(ctx.pathDaemon);
 	return CreateProcessWithCommand(cmdLine, k_noFlags).has_value();
 }
 

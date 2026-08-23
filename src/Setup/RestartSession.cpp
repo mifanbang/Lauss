@@ -38,7 +38,7 @@ bool RegisterResources(gan::WinDword handle, const InstallContext& ctx)
 	constexpr unsigned int k_zeroService = 0;
 	constexpr const wchar_t** k_noServiceName = nullptr;
 	std::array<const wchar_t*, 3> fileList{ {
-		ctx.pathLauncher.c_str(),
+		ctx.pathDaemon.c_str(),
 		ctx.pathPayload.c_str(),
 		ctx.pathUninstaller.c_str()
 	} };

@@ -147,7 +147,7 @@ void WaitOnParentProcess(std::wstring_view parentImage)
 	if (!procRestartResult)
 		return false;
 
-	::DeleteFileW(ctx.pathLauncher.c_str());
+	::DeleteFileW(ctx.pathDaemon.c_str());
 	::DeleteFileW(ctx.pathPayload.c_str());
 	::DeleteFileW(ctx.pathUninstaller.c_str());
 	::RemoveDirectoryW(ctx.installDir.c_str());

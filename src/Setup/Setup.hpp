@@ -32,7 +32,7 @@ struct InstallContext
 {
 	const std::wstring installDir;
 	const std::wstring pathUninstaller;
-	const std::wstring pathLauncher;
+	const std::wstring pathDaemon;
 	const std::wstring pathPayload;
 
 	// The convention is that all instantiated InstallContext's must have non-empty contents.
@@ -45,7 +45,7 @@ struct InstallContext
 		return std::make_optional<InstallContext>(
 			std::wstring{ installDir },
 			std::wstring{ installDir }.append(UninstallerName()),
-			std::wstring{ installDir }.append(LauncherName()),
+			std::wstring{ installDir }.append(DaemonName()),
 			std::wstring{ installDir }.append(PayloadName())
 		);
 	}

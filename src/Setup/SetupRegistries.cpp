@@ -40,7 +40,7 @@ bool StartUpRegistry::Create(const InstallContext& ctx)
 	if (!regKey)
 		return false;
 
-	const auto quotedPath = AddDoubleQuotes(ctx.pathLauncher);
+	const auto quotedPath = AddDoubleQuotes(ctx.pathDaemon);
 	return regKey.SetValue<RegistryKey::Type::String>(
 		k_subkeyLauss,
 		quotedPath.c_str(),

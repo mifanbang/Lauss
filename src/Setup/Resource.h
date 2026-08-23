@@ -18,5 +18,5 @@
 
 #pragma once
 
-#define LAUNCHER	1
-#define PAYLOAD		2
+#define DAEMON	1
+#define PAYLOAD	2

@@ -41,9 +41,9 @@ consteval auto UninstallerName()
 {
 	return L"Uninstaller.exe";
 }
-consteval auto LauncherName()
+consteval auto DaemonName()
 {
-	return L"Lauss.exe";
+	return L"Laussd.exe";
 }
 consteval auto PayloadName()
 {
