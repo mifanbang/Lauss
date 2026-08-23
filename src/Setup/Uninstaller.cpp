@@ -57,10 +57,7 @@ using namespace std::literals;
 	constexpr BOOL k_overwrite = FALSE;
 	::CopyFileW(exePath.c_str(), tmpFilePath.c_str(), k_overwrite);
 
-	auto cmdLine =
-		AddDoubleQuotes(tmpFilePath)
-		.append(1, L' ')
-		.append(CmdLineOptUninstall());
+	auto cmdLine = MakeUninstallCmdLine(AddDoubleQuotes(tmpFilePath));
 	constexpr gan::WinDword k_noFlags = 0;
 	const auto newProcess = CreateProcessWithCommand(cmdLine, k_noFlags);
 	assert(newProcess);
@@ -165,10 +162,11 @@ void CleanUpShadowUninstaller()
 	if (exePath.size() == 0)
 		return;
 
-	auto cmdLine =
+	auto cmdLine = std::move(
 		std::wstring{ L"cmd.exe /C timeout /t 5 /nobreak >nul & del \"" }
 		.append(exePath)
-		.append(1, L'"');
+		.append(1, L'"')
+	);
 	const auto newProcess = CreateProcessWithCommand(cmdLine, CREATE_NO_WINDOW);
 	assert(newProcess);
 	if (!newProcess)

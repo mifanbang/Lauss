@@ -37,6 +37,8 @@ namespace lauss
 
 [[nodiscard]] std::wstring AddDoubleQuotes(std::wstring_view str);
 
+[[nodiscard]] std::wstring MakeUninstallCmdLine(std::wstring&& extPath);
+
 
 void PrintConsole(std::string_view msg);
 

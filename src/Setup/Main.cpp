@@ -104,10 +104,7 @@ private:
 
 [[nodiscard]] bool LaunchExistingUninstaller(std::wstring_view uninstallerPath)
 {
-	auto cmdLine =
-		lauss::AddDoubleQuotes(uninstallerPath)
-		.append(1, L' ')
-		.append(lauss::CmdLineOptUninstall());
+	auto cmdLine = lauss::MakeUninstallCmdLine(lauss::AddDoubleQuotes(uninstallerPath));
 	auto uninstallerProcess = lauss::CreateProcessWithCommand(cmdLine, CREATE_SUSPENDED);
 	assert(uninstallerProcess);
 	if (!uninstallerProcess)

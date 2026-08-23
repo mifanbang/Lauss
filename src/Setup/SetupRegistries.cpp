@@ -65,11 +65,7 @@ bool UninstallRegistry::Create(const InstallContext& ctx)
 	if (!regKey)
 		return false;
 
-	const auto unintallCmd =
-		AddDoubleQuotes(ctx.pathUninstaller)
-		.append(1, L' ')
-		.append(CmdLineOptUninstall());
-
+	const auto unintallCmd = MakeUninstallCmdLine(AddDoubleQuotes(ctx.pathUninstaller));
 	using RegKeyValue = std::pair<std::wstring_view, std::wstring_view>;
 	const std::array<RegKeyValue, 6> keyValues{ {
 		{ L"DisplayName"sv, ProductName() },

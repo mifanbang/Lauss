@@ -39,7 +39,17 @@ namespace lauss
 
 std::wstring AddDoubleQuotes(std::wstring_view str)
 {
-	return std::wstring{ L"\"" }.append(str).append(1, L'"');
+	std::wstring result;
+	result.reserve(str.size() + 2);
+	result.append(1, L'"').append(str).append(1, L'"');
+	return result;
+}
+
+std::wstring MakeUninstallCmdLine(std::wstring&& exePath)
+{
+	std::wstring result = std::move(exePath);
+	result.append(1, L' ').append(CmdLineOptUninstall());
+	return result;
 }
 
 void PrintConsole(std::string_view msg)
