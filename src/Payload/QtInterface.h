@@ -273,8 +273,13 @@ public:
 #define QT6WIDGETS	L"Qt6Widgets.dll"
 #define UCRTBASE	L"ucrtbase.dll"
 
+struct _UnresolvedFuncList
+{
+	std::vector<std::string> unresolved;
+};
 class DynamicImports
 	: public gan::Singleton<DynamicImports>
+	, private _UnresolvedFuncList
 	// QMetaMethod
 	, DECL_SYM(QMetaMethod::methodSignature)
 	, DECL_SYM(QMetaMethod::methodType)
@@ -335,18 +340,13 @@ public:
 	{
 		auto* ptr = gan::DllLookup::Get<void*>(lib, sym);
 		if (ptr == nullptr)
-			DynamicImports::s_unresolved.emplace_back(sym);
+			GetInstance().unresolved.emplace_back(sym);
 		return ptr;
 	}
-
 	static const std::vector<std::string>& GetUnresolvedSymbols()
 	{
-		return s_unresolved;
+		return GetInstance().unresolved;
 	}
-
-private:
-	// Must be static or otherwise _ImportedSymbol constructions would precede s_unresolved's
-	static std::vector<std::string> s_unresolved;
 };
 
 // Custom constructor depends on static member function DynamicImports::_RegisterImport()

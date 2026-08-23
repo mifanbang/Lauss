@@ -26,14 +26,8 @@
 using namespace lauss;
 
 
-std::vector<std::string> DynamicImports::s_unresolved;
-
-
 bool ResolveQtFunctions()
 {
-	// Make sure the singleton is constructed
-	DynamicImports::GetInstance();
-
 	const auto& unresolved = DynamicImports::GetUnresolvedSymbols();
 	for (const auto& symbol : unresolved)
 		Printf("[ResolveQtFunctions()] Failed to resolve symbol: %s\n", symbol.c_str());
