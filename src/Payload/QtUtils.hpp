@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include "QtInterface.h"
+#include "QtInterface.hpp"
 
 #include <optional>
 #include <utility>

@@ -16,7 +16,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "QtInterface.h"
+#include "QtInterface.hpp"
 
 #include <Utils.hpp>
 

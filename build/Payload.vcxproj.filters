@@ -7,8 +7,8 @@
     <ClCompile Include="..\src\Payload\QtUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\Payload\QtInterface.h" />
-    <ClInclude Include="..\src\Payload\QtHook.h" />
-    <ClInclude Include="..\src\Payload\QtUtils.h" />
+    <ClInclude Include="..\src\Payload\QtInterface.hpp" />
+    <ClInclude Include="..\src\Payload\QtHook.hpp" />
+    <ClInclude Include="..\src\Payload\QtUtils.hpp" />
   </ItemGroup>
 </Project>

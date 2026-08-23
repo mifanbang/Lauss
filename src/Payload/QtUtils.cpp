@@ -16,10 +16,10 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "QtUtils.h"
+#include "QtUtils.hpp"
 
-#include "QtHook.h"
-#include "QtInterface.h"
+#include "QtHook.hpp"
+#include "QtInterface.hpp"
 
 #include <LaussDef.hpp>
 #include <Utils.hpp>

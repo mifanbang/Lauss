@@ -18,8 +18,7 @@
 
 #pragma once
 
-#include "QtInterface.h"
-
+#include "QtInterface.hpp"
 
 
 struct HookedQWidget : public QWidget

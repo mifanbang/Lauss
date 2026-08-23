@@ -16,9 +16,9 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "QtHook.h"
-#include "QtInterface.h"
-#include "QtUtils.h"
+#include "QtHook.hpp"
+#include "QtInterface.hpp"
+#include "QtUtils.hpp"
 
 #include <Debug.hpp>
 #include <LaussDef.hpp>
