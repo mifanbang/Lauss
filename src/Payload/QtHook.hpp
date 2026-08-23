@@ -21,9 +21,14 @@
 #include "QtInterface.hpp"
 
 
+namespace lauss::payload
+{
+
 struct HookedQWidget : public QWidget
 {
 	void Show();
 
 	static decltype(&QWidget::show) s_trampoline;
 };
+
+}  // namespace lauss::payload

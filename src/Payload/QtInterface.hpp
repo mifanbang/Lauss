@@ -30,6 +30,9 @@
 #include <type_traits>
 
 
+namespace lauss::payload
+{
+
 bool ResolveQtFunctions();
 
 
@@ -376,3 +379,6 @@ QArrayDataPointer<T>::~QArrayDataPointer()
 	if (d && d->ref.fetch_sub(1, std::memory_order_acq_rel) == 1)
 		Q(::free)(d);
 }
+
+
+}  // namespace lauss::payload

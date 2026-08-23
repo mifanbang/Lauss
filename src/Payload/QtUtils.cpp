@@ -34,8 +34,8 @@
 #include <utility>
 
 
-using namespace lauss;
-
+namespace lauss::payload
+{
 
 const char* GetQtClassName(const QObject& object)
 {
@@ -245,3 +245,5 @@ bool HideBanner(QWidget& bannerWidget)
 
 	return true;
 }
+
+}  // namespace lauss::payload

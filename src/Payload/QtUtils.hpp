@@ -25,6 +25,9 @@
 #include <vector>
 
 
+namespace lauss::payload
+{
+
 // ------------------------------------------------------------------------------
 // QObject, QMetaObject, etc.
 
@@ -56,3 +59,6 @@ std::vector<QWidget*> FindBanners();
 // High level operations specific to Lauss
 
 bool HideBanner(QWidget& bannerWidget);
+
+
+}  // namespace lauss::payload

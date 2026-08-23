@@ -26,15 +26,11 @@
 
 #include <windows.h>
 
-#include <cstdio>
-#include <optional>
-#include <ranges>
-#include <vector>
-
 
 namespace {
 
 using namespace lauss;
+using namespace lauss::payload;
 
 void HandleWidgetShowHook(QWidget& widget)
 {
@@ -45,12 +41,13 @@ void HandleWidgetShowHook(QWidget& widget)
 	}
 }
 
-
 }  // namespace
 
 
-decltype(&QWidget::show) HookedQWidget::s_trampoline{ nullptr };
+namespace lauss::payload
+{
 
+decltype(&QWidget::show) HookedQWidget::s_trampoline{ nullptr };
 
 // If for any reason s_trampoline is null while this hook function gets called, we should just let the LINE client crash.
 void HookedQWidget::Show()
@@ -59,3 +56,5 @@ void HookedQWidget::Show()
 
 	(this->*s_trampoline)();
 }
+
+}  // namespace lauss::payload

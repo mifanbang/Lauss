@@ -23,8 +23,8 @@
 #include <Gandr/DllLookup.hpp>
 
 
-using namespace lauss;
-
+namespace lauss::payload
+{
 
 bool ResolveQtFunctions()
 {
@@ -33,3 +33,5 @@ bool ResolveQtFunctions()
 		Printf("[ResolveQtFunctions()] Failed to resolve symbol: %s\n", symbol.c_str());
 	return unresolved.size() == 0;
 }
+
+}  // namespace lauss::payload

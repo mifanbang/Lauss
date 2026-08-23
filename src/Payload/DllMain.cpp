@@ -31,12 +31,15 @@
 #include <thread>
 
 
-using namespace lauss;
 using namespace std::literals;
 
 
 namespace
 {
+
+using namespace lauss;
+using namespace lauss::payload;
+
 
 enum class PayloadResult : DWORD
 {
